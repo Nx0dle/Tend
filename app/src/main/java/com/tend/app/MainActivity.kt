@@ -279,9 +279,6 @@ private fun TendHomeScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("TEND", color = Forest, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-            if (selectedTab == 1 && selectedMonth != YearMonth.now()) {
-                TextButton(onClick = { onMonthChange(YearMonth.now()) }) { Text("Bieżący miesiąc") }
-            }
         }
         if (selectedTab == 1) {
             Surface(
@@ -292,17 +289,24 @@ private fun TendHomeScreen(
                 shadowElevation = 1.dp,
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IconButton(onClick = { onMonthChange(selectedMonth.minusMonths(1)) }) {
                         Text("‹", modifier = Modifier.semantics { contentDescription = "Poprzedni miesiąc" }, color = Forest, fontSize = 28.sp)
                     }
                     Column(
-                        modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(monthLabel, color = Ink, fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            monthLabel,
+                            color = Ink,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            softWrap = false,
+                        )
                         Text(
                             if (selectedMonth == YearMonth.now()) "Bieżący miesiąc" else "Wybrany miesiąc",
                             color = Muted,
