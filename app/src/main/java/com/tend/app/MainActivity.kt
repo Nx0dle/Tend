@@ -106,12 +106,12 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import android.app.NotificationManager
 import android.content.Context
 
-private val Porcelain = Color(0xFFF6F5F1)
-private val Ink = Color(0xFF202923)
-private val Forest = Color(0xFF176B54)
-private val Sage = Color(0xFFE5EEE8)
+private val Porcelain = Color(0xFFF3F0E8)
+private val Ink = Color(0xFF192821)
+private val Forest = Color(0xFF234B3A)
+private val Sage = Color(0xFFD8F078)
 private val Muted = Color(0xFF68736D)
-private val Line = Color(0xFFE4E6E0)
+private val Line = Color(0xFFE2DED3)
 
 class MainActivity : ComponentActivity() {
     private val viewModel: TendViewModel by viewModels()
@@ -297,41 +297,31 @@ private fun TendHomeScreen(
             .imePadding(),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text("TEND", color = Forest, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-        }
-        Surface(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 10.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = Color.White,
-            border = BorderStroke(1.dp, Line),
-            shadowElevation = 1.dp,
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = { onMonthChange(selectedMonth.minusMonths(1)) }) {
-                    Text("‹", modifier = Modifier.semantics { contentDescription = "Poprzedni miesiąc" }, color = Forest, fontSize = 28.sp)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Box(Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(Forest), contentAlignment = Alignment.Center) {
+                    Text("t", color = Sage, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 }
-                Text(
-                    monthLabel,
-                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
-                    color = Ink,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    softWrap = false,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                )
-                IconButton(onClick = { onMonthChange(selectedMonth.plusMonths(1)) }) {
-                    Text("›", modifier = Modifier.semantics { contentDescription = "Następny miesiąc" }, color = Forest, fontSize = 28.sp)
-                }
+                Text("TEND", color = Ink, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MonthArrow("‹", "Poprzedni miesiąc") { onMonthChange(selectedMonth.minusMonths(1)) }
+                MonthArrow("›", "Następny miesiąc") { onMonthChange(selectedMonth.plusMonths(1)) }
             }
         }
+        Text(
+            monthLabel,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 6.dp),
+            color = Ink,
+            fontSize = 25.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = (-0.7).sp,
+            maxLines = 1,
+            softWrap = false,
+        )
 
         AnimatedContent(
             targetState = selectedTab,
@@ -362,7 +352,7 @@ private fun TendHomeScreen(
             Column(
                 modifier = Modifier.fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 22.dp, vertical = 18.dp),
+            .padding(horizontal = 22.dp, vertical = 12.dp),
             ) {
             if (tab == 1) {
                 Spacer(Modifier.height(14.dp))
@@ -427,8 +417,8 @@ private fun TendHomeScreen(
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     shape = RoundedCornerShape(18.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = animateColorAsState(
-                            if (entrySaved) Color(0xFF2E8068) else Forest,
+                    containerColor = animateColorAsState(
+                            if (entrySaved) Forest else Sage,
                             animationSpec = tween(180),
                             label = "entry-button-color",
                         ).value,
@@ -441,8 +431,9 @@ private fun TendHomeScreen(
                     ) { saved ->
                         Text(
                             if (saved) "Dodano" else if (isIncome) "Dodaj przychód" else "Dodaj wydatek",
+                            color = if (saved) Color.White else Ink,
                             fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Bold,
                         )
                     }
                 }
@@ -475,21 +466,24 @@ private fun TendHomeScreen(
             colors = CardDefaults.cardColors(containerColor = Ink),
         ) {
             Column(Modifier.padding(20.dp)) {
-                Text("WYDATKI · ${monthLabel.uppercase(Locale("pl", "PL"))}", color = Color(0xFFC2D5C9), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                Spacer(Modifier.height(8.dp))
-                Text(formatMoney(spentCents), color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(14.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("WYDATKI ŁĄCZNIE", color = Color(0xFFC5D1C5), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(Sage))
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(formatMoney(spentCents), color = Color.White, fontSize = 38.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.2).sp)
+                Spacer(Modifier.height(16.dp))
                 val categoryShare = allocatedCents.coerceAtMost(availableCents.coerceAtLeast(0L))
                 val reserveShare = reserveCents.coerceAtLeast(0L)
                 Row(
                     modifier = Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(8.dp)),
                 ) {
                     if (categoryShare > 0L) {
-                        val assignmentColor = if (reserveCents < 0L) Color(0xFFB96855) else Color(0xFF8DB6A0)
+                        val assignmentColor = if (reserveCents < 0L) Color(0xFFE58669) else Sage
                         Box(Modifier.weight(categoryShare.toFloat()).fillMaxHeight().background(assignmentColor))
                     }
                     if (reserveShare > 0L) {
-                        Box(Modifier.weight(reserveShare.toFloat()).fillMaxHeight().background(Color(0xFFE6A45B)))
+                        Box(Modifier.weight(reserveShare.toFloat()).fillMaxHeight().background(Color(0xFFD38B61)))
                     }
                     if (categoryShare == 0L && reserveShare == 0L) {
                         Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.18f)))
@@ -497,9 +491,9 @@ private fun TendHomeScreen(
                 }
                 Spacer(Modifier.height(14.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SummaryMetric("Pula", if (hasBudgetPool) formatMoney(availableCents) else "Nieustawiona", Modifier.weight(1f))
-                    SummaryMetric("Kategorie", formatMoney(allocatedCents), Modifier.weight(1f))
-                    SummaryMetric("Rezerwa", if (!hasBudgetPool && allocatedCents == 0L) "—" else formatMoney(reserveCents), Modifier.weight(1f))
+                    SummaryMetric("PULA", if (hasBudgetPool) formatMoney(availableCents) else "Nieustawiona", Modifier.weight(1f))
+                    SummaryMetric("LIMITY", formatMoney(allocatedCents), Modifier.weight(1f))
+                    SummaryMetric("REZERWA", if (!hasBudgetPool && allocatedCents == 0L) "—" else formatMoney(reserveCents), Modifier.weight(1f))
                 }
             }
         }
@@ -595,9 +589,9 @@ private fun TendHomeScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 18.dp, vertical = 10.dp),
             shape = RoundedCornerShape(26.dp),
-            color = Color.White,
-            border = BorderStroke(1.dp, Line),
-            shadowElevation = 4.dp,
+            color = Ink,
+            border = BorderStroke(1.dp, Ink),
+            shadowElevation = 8.dp,
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(6.dp),
@@ -1248,8 +1242,8 @@ private fun SummaryMetric(label: String, value: String, modifier: Modifier = Mod
 private data class ExpenseSlice(val label: String, val amountCents: Long, val color: Color)
 
 private val ExpenseChartColors = listOf(
-    Color(0xFF176B54), Color(0xFF8DB6A0), Color(0xFFE6A45B), Color(0xFF7D83B8),
-    Color(0xFFDB7771), Color(0xFF69A8B5), Color(0xFFB49A62), Color(0xFF9C79A8),
+    Color(0xFF234B3A), Color(0xFF91AE64), Color(0xFFD38B61), Color(0xFF6579A1),
+    Color(0xFFD67768), Color(0xFF5F9A91), Color(0xFFB49A62), Color(0xFF9C79A8),
 )
 
 private fun categoryColor(categoryId: String?): Color =
@@ -1343,19 +1337,28 @@ private fun BottomNavItem(label: String, selected: Boolean, modifier: Modifier =
     Surface(
         modifier = modifier,
         onClick = onClick,
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(18.dp),
         color = if (selected) Sage else Color.Transparent,
     ) {
         Box(
-            modifier = Modifier.fillMaxWidth().height(48.dp),
+            modifier = Modifier.fillMaxWidth().height(50.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = label,
-                color = if (selected) Forest else Muted,
+                color = if (selected) Ink else Color(0xFFBAC3BA),
                 fontSize = 13.sp,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
             )
+        }
+    }
+}
+
+@Composable
+private fun MonthArrow(symbol: String, description: String, onClick: () -> Unit) {
+    Surface(onClick = onClick, shape = CircleShape, color = Color.White.copy(alpha = 0.75f)) {
+        Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
+            Text(symbol, modifier = Modifier.semantics { contentDescription = description }, color = Ink, fontSize = 23.sp, fontWeight = FontWeight.Medium)
         }
     }
 }
