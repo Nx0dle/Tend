@@ -52,12 +52,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.TextButton
@@ -66,6 +66,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -105,13 +106,17 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import android.app.NotificationManager
 import android.content.Context
+import androidx.compose.ui.window.Dialog
 
-private val Porcelain = Color(0xFFF3F0E8)
-private val Ink = Color(0xFF192821)
-private val Forest = Color(0xFF234B3A)
-private val Sage = Color(0xFFD8F078)
-private val Muted = Color(0xFF68736D)
-private val Line = Color(0xFFE2DED3)
+private val Porcelain = Color(0xFFF5F3EC)
+private val Ink = Color(0xFF18332D)
+private val Forest = Color(0xFF176451)
+private val DeepForest = Color(0xFF103E35)
+private val Sage = Color(0xFFDCEBE2)
+private val Gold = Color(0xFFC69A52)
+private val Muted = Color(0xFF64766F)
+private val Line = Color(0xFFDCE4DE)
+private val Danger = Color(0xFFB6534A)
 
 class MainActivity : ComponentActivity() {
     private val viewModel: TendViewModel by viewModels()
@@ -164,11 +169,14 @@ class MainActivity : ComponentActivity() {
                 colorScheme = lightColorScheme(
                     primary = Forest,
                     onPrimary = Color.White,
+                    secondary = Gold,
+                    onSecondary = Ink,
                     background = Porcelain,
                     surface = Color.White,
                     onSurface = Ink,
                     onBackground = Ink,
                     outline = Line,
+                    error = Danger,
                 ),
             ) {
                 Surface(modifier = Modifier.fillMaxSize(), color = Porcelain) {
@@ -371,8 +379,8 @@ private fun TendHomeScreen(
                 Text("SZYBKIE DODAWANIE", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = { isIncome = false }) { Text(if (!isIncome) "● Wydatek" else "Wydatek") }
-                    TextButton(onClick = { isIncome = true }) { Text(if (isIncome) "● Przychód" else "Przychód") }
+                    EntryModeChoice("Wydatek", selected = !isIncome) { isIncome = false }
+                    EntryModeChoice("Przychód", selected = isIncome) { isIncome = true }
                 }
                 OutlinedTextField(
                     value = amount,
@@ -383,6 +391,7 @@ private fun TendHomeScreen(
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text("0,00", fontSize = 32.sp, color = Color(0xFFABB3AD)) },
                     suffix = { Text("zł", color = Muted, fontSize = 16.sp) },
+                    colors = tendFieldColors(),
                     singleLine = true,
                     shape = RoundedCornerShape(18.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -463,7 +472,7 @@ private fun TendHomeScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Ink),
+            colors = CardDefaults.cardColors(containerColor = DeepForest),
         ) {
             Column(Modifier.padding(20.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -589,8 +598,8 @@ private fun TendHomeScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 18.dp, vertical = 10.dp),
             shape = RoundedCornerShape(26.dp),
-            color = Ink,
-            border = BorderStroke(1.dp, Ink),
+            color = DeepForest,
+            border = BorderStroke(1.dp, DeepForest),
             shadowElevation = 8.dp,
         ) {
             Row(
@@ -606,18 +615,37 @@ private fun TendHomeScreen(
     }
 
     if (showCategoryPicker) {
-        AlertDialog(
+        TendDialog(
             onDismissRequest = { showCategoryPicker = false },
             title = { Text("Wybierz kategorię") },
             text = {
-                Column {
-                    TextButton(onClick = { selectedCategoryId = null; showCategoryPicker = false }) { Text("Bez kategorii") }
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    CategoryChoiceRow(
+                        label = "Bez kategorii",
+                        selected = selectedCategoryId == null,
+                        onClick = { selectedCategoryId = null; showCategoryPicker = false },
+                    )
                     categories.forEach { category ->
-                        TextButton(onClick = { selectedCategoryId = category.id; showCategoryPicker = false }) {
-                            Text(category.name)
+                        CategoryChoiceRow(
+                            label = category.name,
+                            selected = selectedCategoryId == category.id,
+                            onClick = { selectedCategoryId = category.id; showCategoryPicker = false },
+                        )
+                    }
+                    Surface(
+                        onClick = { showCategoryPicker = false; showAddCategory = true },
+                        color = DeepForest,
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 13.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Text("+", color = Gold, fontSize = 21.sp, fontWeight = FontWeight.Medium)
+                            Text("Utwórz kategorię", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
-                    TextButton(onClick = { showCategoryPicker = false; showAddCategory = true }) { Text("+ Dodaj kategorię") }
                 }
             },
             confirmButton = {},
@@ -625,7 +653,7 @@ private fun TendHomeScreen(
     }
 
     if (showAddCategory) {
-        AlertDialog(
+        TendDialog(
             onDismissRequest = { showAddCategory = false; categoryName = "" },
             title = { Text("Nowa kategoria") },
             text = {
@@ -633,6 +661,8 @@ private fun TendHomeScreen(
                     value = categoryName,
                     onValueChange = { categoryName = it },
                     label = { Text("Nazwa") },
+                    shape = RoundedCornerShape(15.dp),
+                    colors = tendFieldColors(),
                     singleLine = true,
                 )
             },
@@ -648,7 +678,7 @@ private fun TendHomeScreen(
     }
 
     budgetCategory?.let { category ->
-        AlertDialog(
+        TendDialog(
             onDismissRequest = { budgetCategory = null },
             title = { Text("Budżet: ${category.name}") },
             text = {
@@ -658,6 +688,8 @@ private fun TendHomeScreen(
                     label = { Text("Miesięczny limit") },
                     suffix = { Text("zł") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    shape = RoundedCornerShape(15.dp),
+                    colors = tendFieldColors(),
                     singleLine = true,
                 )
             },
@@ -675,7 +707,7 @@ private fun TendHomeScreen(
     }
 
     if (showMonthlyBudgetDialog) {
-        AlertDialog(
+        TendDialog(
             onDismissRequest = { showMonthlyBudgetDialog = false },
             title = { Text("Budżet na ten miesiąc") },
             text = {
@@ -685,6 +717,8 @@ private fun TendHomeScreen(
                     label = { Text("Kwota do rozdysponowania") },
                     suffix = { Text("zł") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    shape = RoundedCornerShape(15.dp),
+                    colors = tendFieldColors(),
                     singleLine = true,
                 )
             },
@@ -733,7 +767,7 @@ private fun TendHomeScreen(
     }
 
     deletingEntry?.let { entry ->
-        AlertDialog(
+        TendDialog(
             onDismissRequest = { deletingEntry = null },
             title = { Text("Usunąć wpis?") },
             text = { Text("${formatMoney(entry.amountCents)} zostanie usunięte z historii.") },
@@ -745,7 +779,7 @@ private fun TendHomeScreen(
     }
 
     deletingCategory?.let { category ->
-        AlertDialog(
+        TendDialog(
             onDismissRequest = { deletingCategory = null },
             title = { Text("Usunąć kategorię?") },
             text = { Text("Wpisy z kategorii „${category.name}” pozostaną w historii jako bez kategorii.") },
@@ -773,7 +807,7 @@ private fun TendHomeScreen(
     }
 
     deletingRecurringBill?.let { bill ->
-        AlertDialog(
+        TendDialog(
             onDismissRequest = { deletingRecurringBill = null },
             title = { Text("Usunąć rachunek cykliczny?") },
             text = { Text("Przyszłe przypomnienia dla „${bill.name}” zostaną wyłączone. Już utworzone wpisy pozostaną w historii.") },
@@ -797,7 +831,7 @@ private fun EntryEditorDialog(
     var categoryId by remember(entry.id) { mutableStateOf(entry.categoryId) }
     var categoryMenuExpanded by remember { mutableStateOf(false) }
     val selectedCategory = categories.firstOrNull { it.id == categoryId }
-    AlertDialog(
+    TendDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edytuj wpis") },
         text = {
@@ -808,16 +842,18 @@ private fun EntryEditorDialog(
                     label = { Text("Kwota") },
                     suffix = { Text("zł") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    shape = RoundedCornerShape(15.dp),
+                    colors = tendFieldColors(),
                     singleLine = true,
                 )
                 if (entry.type == "expense") {
                     Box {
-                        OutlinedButton(onClick = { categoryMenuExpanded = true }) {
-                            Text(selectedCategory?.name ?: "Bez kategorii")
-                        }
+                        CategoryMenuField(selectedCategory?.name ?: "Bez kategorii") { categoryMenuExpanded = true }
                         DropdownMenu(
                             expanded = categoryMenuExpanded,
                             onDismissRequest = { categoryMenuExpanded = false },
+                            shape = RoundedCornerShape(16.dp),
+                            containerColor = Color.White,
                         ) {
                             DropdownMenuItem(
                                 text = { Text("Bez kategorii") },
@@ -840,7 +876,7 @@ private fun EntryEditorDialog(
         },
         dismissButton = {
             Row {
-                TextButton(onClick = onDelete) { Text("Usuń", color = Color(0xFFB96855)) }
+                TextButton(onClick = onDelete) { Text("Usuń", color = Danger) }
                 TextButton(onClick = onDismiss) { Text("Anuluj") }
             }
         },
@@ -855,18 +891,25 @@ private fun CategoryEditorDialog(
     onDelete: () -> Unit,
 ) {
     var name by remember(category.id) { mutableStateOf(category.name) }
-    AlertDialog(
+    TendDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edytuj kategorię") },
         text = {
-            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nazwa") }, singleLine = true)
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Nazwa kategorii") },
+                shape = RoundedCornerShape(15.dp),
+                colors = tendFieldColors(),
+                singleLine = true,
+            )
         },
         confirmButton = {
             TextButton(onClick = { onSave(category, name) }, enabled = name.isNotBlank()) { Text("Zapisz") }
         },
         dismissButton = {
             Row {
-                TextButton(onClick = onDelete) { Text("Usuń", color = Color(0xFFB96855)) }
+                TextButton(onClick = onDelete) { Text("Usuń", color = Danger) }
                 TextButton(onClick = onDismiss) { Text("Anuluj") }
             }
         },
@@ -930,7 +973,7 @@ private fun RecurringBillsSection(
                     Text("${formatMoney(bill.amountCents)} · co miesiąc, dzień ${bill.dayOfMonth}", color = Muted, fontSize = 12.sp)
                 }
                 TextButton(onClick = { onEditBill(bill) }) { Text("Edytuj") }
-                TextButton(onClick = { onDeleteBill(bill) }) { Text("Usuń", color = Color(0xFFB96855)) }
+                TextButton(onClick = { onDeleteBill(bill) }) { Text("Usuń", color = Danger) }
             }
         }
     }
@@ -951,18 +994,27 @@ private fun RecurringBillEditorDialog(
     var day by remember(bill?.id) { mutableStateOf((bill?.dayOfMonth ?: 1).toString()) }
     var categoryMenuExpanded by remember { mutableStateOf(false) }
     val selectedCategory = categories.firstOrNull { it.id == categoryId }
-    AlertDialog(
+    TendDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (bill == null) "Nowy rachunek cykliczny" else "Edytuj rachunek") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nazwa") }, singleLine = true)
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Nazwa rachunku") },
+                    shape = RoundedCornerShape(15.dp),
+                    colors = tendFieldColors(),
+                    singleLine = true,
+                )
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { value -> amount = value.filter { it.isDigit() || it == ',' || it == '.' } },
                     label = { Text("Kwota") },
                     suffix = { Text("zł") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    shape = RoundedCornerShape(15.dp),
+                    colors = tendFieldColors(),
                     singleLine = true,
                 )
                 OutlinedTextField(
@@ -970,13 +1022,18 @@ private fun RecurringBillEditorDialog(
                     onValueChange = { value -> day = value.filter(Char::isDigit).take(2) },
                     label = { Text("Dzień płatności (1–31)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    shape = RoundedCornerShape(15.dp),
+                    colors = tendFieldColors(),
                     singleLine = true,
                 )
                 Box {
-                    OutlinedButton(onClick = { categoryMenuExpanded = true }) {
-                        Text(selectedCategory?.name ?: "Bez kategorii")
-                    }
-                    DropdownMenu(expanded = categoryMenuExpanded, onDismissRequest = { categoryMenuExpanded = false }) {
+                    CategoryMenuField(selectedCategory?.name ?: "Bez kategorii") { categoryMenuExpanded = true }
+                    DropdownMenu(
+                        expanded = categoryMenuExpanded,
+                        onDismissRequest = { categoryMenuExpanded = false },
+                        shape = RoundedCornerShape(16.dp),
+                        containerColor = Color.White,
+                    ) {
                         DropdownMenuItem(
                             text = { Text("Bez kategorii") },
                             onClick = { categoryId = null; categoryMenuExpanded = false },
@@ -1147,8 +1204,8 @@ private fun CategoryBudgetRow(
 ) {
     val ratio = if (budgetCents > 0L) (spentCents.toFloat() / budgetCents).coerceIn(0f, 1f) else 0f
     val progressColor = when {
-        budgetCents > 0L && spentCents >= budgetCents -> Color(0xFFB96855)
-        ratio >= 0.8f -> Color(0xFFB8893E)
+        budgetCents > 0L && spentCents >= budgetCents -> Danger
+        ratio >= 0.8f -> Gold
         else -> categoryColor(category.id)
     }
     val animatedRatio by animateFloatAsState(ratio, animationSpec = tween(450), label = "category-budget-progress")
@@ -1191,8 +1248,8 @@ private fun CategoryProgressRow(
 ) {
     val ratio = if (budgetCents > 0L) (spentCents.toFloat() / budgetCents).coerceIn(0f, 1f) else 0f
     val progressColor = when {
-        budgetCents > 0L && spentCents >= budgetCents -> Color(0xFFB96855)
-        ratio >= 0.8f -> Color(0xFFB8893E)
+        budgetCents > 0L && spentCents >= budgetCents -> Danger
+        ratio >= 0.8f -> Gold
         else -> categoryColor(category.id)
     }
     val animatedRatio by animateFloatAsState(ratio, animationSpec = tween(450), label = "start-category-progress")
@@ -1242,8 +1299,8 @@ private fun SummaryMetric(label: String, value: String, modifier: Modifier = Mod
 private data class ExpenseSlice(val label: String, val amountCents: Long, val color: Color)
 
 private val ExpenseChartColors = listOf(
-    Color(0xFF234B3A), Color(0xFF91AE64), Color(0xFFD38B61), Color(0xFF6579A1),
-    Color(0xFFD67768), Color(0xFF5F9A91), Color(0xFFB49A62), Color(0xFF9C79A8),
+    Color(0xFF176451), Color(0xFF397561), Color(0xFF73A58A), Color(0xFFC69A52),
+    Color(0xFFD6B36B), Color(0xFFC87963), Color(0xFF69818A), Color(0xFF98A284),
 )
 
 private fun categoryColor(categoryId: String?): Color =
@@ -1353,6 +1410,138 @@ private fun BottomNavItem(label: String, selected: Boolean, modifier: Modifier =
         }
     }
 }
+
+@Composable
+private fun TendDialog(
+    onDismissRequest: () -> Unit,
+    title: @Composable () -> Unit,
+    text: @Composable () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    dismissButton: @Composable () -> Unit = {},
+) {
+    Dialog(onDismissRequest = onDismissRequest) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(27.dp),
+            color = Porcelain,
+            border = BorderStroke(1.dp, Gold.copy(alpha = 0.48f)),
+            shadowElevation = 20.dp,
+        ) {
+            Column(Modifier.padding(20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Box(Modifier.size(26.dp).clip(CircleShape).background(DeepForest), contentAlignment = Alignment.Center) {
+                            Text("t", color = Gold, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Text("TEND  /  FINANSE", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    }
+                    Surface(onClick = onDismissRequest, shape = CircleShape, color = Sage) {
+                        Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
+                            Text("×", color = DeepForest, fontSize = 20.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(18.dp))
+                CompositionLocalProvider(
+                    LocalTextStyle provides MaterialTheme.typography.titleLarge.copy(
+                        color = Ink,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = (-0.3).sp,
+                    ),
+                ) { title() }
+                Spacer(Modifier.height(14.dp))
+                Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
+                Spacer(Modifier.height(17.dp))
+                CompositionLocalProvider(
+                    LocalTextStyle provides MaterialTheme.typography.bodyMedium.copy(color = Muted),
+                ) { text() }
+                Spacer(Modifier.height(18.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    dismissButton()
+                    confirmButton()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryChoiceRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        color = if (selected) Sage else Color.White,
+        shape = RoundedCornerShape(15.dp),
+        border = BorderStroke(1.dp, if (selected) Forest.copy(alpha = 0.45f) else Line),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(11.dp),
+        ) {
+            Box(Modifier.size(11.dp).clip(CircleShape).background(if (selected) Gold else Sage))
+            Text(label, modifier = Modifier.weight(1f), color = Ink, fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
+            if (selected) Text("✓", color = Forest, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun EntryModeChoice(label: String, selected: Boolean, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(14.dp),
+        color = if (selected) DeepForest else Color.Transparent,
+    ) {
+        Row(
+            Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            if (selected) Box(Modifier.size(6.dp).clip(CircleShape).background(Gold))
+            Text(label, color = if (selected) Color.White else Muted, fontSize = 13.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
+        }
+    }
+}
+
+@Composable
+private fun CategoryMenuField(label: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(15.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Line),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(label, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text("⌄", color = Forest, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun tendFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Ink,
+    unfocusedTextColor = Ink,
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+    focusedBorderColor = Forest,
+    unfocusedBorderColor = Line,
+    focusedLabelColor = Forest,
+    unfocusedLabelColor = Muted,
+    cursorColor = Forest,
+)
 
 @Composable
 private fun MonthArrow(symbol: String, description: String, onClick: () -> Unit) {
