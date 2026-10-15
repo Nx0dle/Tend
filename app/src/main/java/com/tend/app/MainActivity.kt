@@ -498,6 +498,7 @@ private fun TendHomeScreen(
         Spacer(Modifier.height(26.dp))
         }
         }
+        }
 
         Surface(
             modifier = Modifier
