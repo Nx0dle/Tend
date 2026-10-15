@@ -24,12 +24,33 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TendViewModel(application: Application) : AndroidViewModel(application) {
-    private val _selectedMonth = MutableStateFlow(YearMonth.now())
-    val selectedMonth = _selectedMonth.asStateFlow()
-    private val _copyPlanMessage = MutableStateFlow<String?>(null)
-    val copyPlanMessage = _copyPlanMessage.asStateFlow()
     private val repository = LedgerRepository(TendDatabase.get(application))
     private val budgetAlertNotifier = BudgetAlertNotifier(application)
+    private val _selectedMonth = MutableStateFlow(YearMonth.now())
+    val selectedMonth = _selectedMonth.asStateFlow()
+    private val _currentMonth = MutableStateFlow(YearMonth.now())
+    val currentEntries = _currentMonth.flatMapLatest { repository.observeMonth(it.toString()) }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList(),
+    )
+    val currentBudgets = _currentMonth.flatMapLatest { repository.observeBudgets(it.toString()) }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList(),
+    )
+    val currentMonthlyBudget = _currentMonth.flatMapLatest { repository.observeMonthlyBudget(it.toString()) }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = null,
+    )
+    val currentCarryover = _currentMonth.flatMapLatest { repository.observeCarryover(it.toString()) }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = 0L,
+    )
+    private val _copyPlanMessage = MutableStateFlow<String?>(null)
+    val copyPlanMessage = _copyPlanMessage.asStateFlow()
 
     val entries = selectedMonth.flatMapLatest { repository.observeMonth(it.toString()) }.stateIn(
         scope = viewModelScope,
@@ -76,6 +97,11 @@ class TendViewModel(application: Application) : AndroidViewModel(application) {
     fun showMonth(month: YearMonth) {
         _selectedMonth.value = month
         _copyPlanMessage.value = null
+    }
+
+    fun refreshCurrentMonth() {
+        val now = YearMonth.now()
+        if (_currentMonth.value != now) _currentMonth.value = now
     }
 
     fun addEntry(amountCents: Long, type: String, categoryId: String? = null) {
