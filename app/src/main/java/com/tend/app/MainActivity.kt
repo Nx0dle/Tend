@@ -1,5 +1,12 @@
 package com.tend.app
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -19,6 +26,7 @@ import androidx.work.WorkManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +38,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -57,6 +67,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -65,6 +76,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.Instant
@@ -267,58 +279,83 @@ private fun TendHomeScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("TEND", color = Forest, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-            if (selectedMonth != YearMonth.now()) {
+            if (selectedTab == 1 && selectedMonth != YearMonth.now()) {
                 TextButton(onClick = { onMonthChange(YearMonth.now()) }) { Text("Bieżący miesiąc") }
             }
         }
-        Spacer(Modifier.height(4.dp))
-        Surface(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = Color.White,
-            border = BorderStroke(1.dp, Line),
-            shadowElevation = 1.dp,
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        if (selectedTab == 1) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 10.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, Line),
+                shadowElevation = 1.dp,
             ) {
-                IconButton(onClick = { onMonthChange(selectedMonth.minusMonths(1)) }) {
-                    Text("‹", modifier = Modifier.semantics { contentDescription = "Poprzedni miesiąc" }, color = Forest, fontSize = 28.sp)
-                }
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(monthLabel, color = Ink, fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        if (selectedMonth == YearMonth.now()) "Bieżący miesiąc" else "Wybrany miesiąc",
-                        color = Muted,
-                        fontSize = 11.sp,
-                    )
-                }
-                IconButton(onClick = { onMonthChange(selectedMonth.plusMonths(1)) }) {
-                    Text("›", modifier = Modifier.semantics { contentDescription = "Następny miesiąc" }, color = Forest, fontSize = 28.sp)
+                    IconButton(onClick = { onMonthChange(selectedMonth.minusMonths(1)) }) {
+                        Text("‹", modifier = Modifier.semantics { contentDescription = "Poprzedni miesiąc" }, color = Forest, fontSize = 28.sp)
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(monthLabel, color = Ink, fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            if (selectedMonth == YearMonth.now()) "Bieżący miesiąc" else "Wybrany miesiąc",
+                            color = Muted,
+                            fontSize = 11.sp,
+                        )
+                    }
+                    IconButton(onClick = { onMonthChange(selectedMonth.plusMonths(1)) }) {
+                        Text("›", modifier = Modifier.semantics { contentDescription = "Następny miesiąc" }, color = Forest, fontSize = 28.sp)
+                    }
                 }
             }
         }
 
-        Column(
+        AnimatedContent(
+            targetState = selectedTab,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 22.dp, vertical = 18.dp),
-        ) {
-            if (selectedTab == 1) {
+                .pointerInput(selectedTab) {
+                    var horizontalDrag = 0f
+                    detectHorizontalDragGestures(
+                        onHorizontalDrag = { change, dragAmount ->
+                            horizontalDrag += dragAmount
+                            change.consume()
+                        },
+                        onDragEnd = {
+                            if (horizontalDrag < -72f) selectedTab = (selectedTab + 1).coerceAtMost(2)
+                            if (horizontalDrag > 72f) selectedTab = (selectedTab - 1).coerceAtLeast(0)
+                            horizontalDrag = 0f
+                        },
+                    )
+                },
+            transitionSpec = {
+                val direction = if (targetState > initialState) 1 else -1
+                (slideInHorizontally(tween(220)) { it / 5 * direction } + fadeIn(tween(180))) togetherWith
+                    (slideOutHorizontally(tween(220)) { -it / 5 * direction } + fadeOut(tween(120)))
+            },
+            label = "main-tab-content",
+        ) { tab ->
+            Column(
+                modifier = Modifier.fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 22.dp, vertical = 18.dp),
+            ) {
+            if (tab == 1) {
                 Spacer(Modifier.height(14.dp))
                 CalendarContent(entries = entries, categories = categories, month = selectedMonth, onEntryClick = { editingEntry = it })
             } else {
-        if (selectedTab == 0 && selectedMonth != YearMonth.now()) {
+        if (tab == 0 && selectedMonth != YearMonth.now()) {
             Spacer(Modifier.height(22.dp))
             Text("Podglądasz poprzedni miesiąc. Wróć do bieżącego, aby dodać wpis.", color = Muted, fontSize = 13.sp)
         }
-        if (selectedTab != 2 && selectedMonth == YearMonth.now()) {
+        if (tab != 2 && selectedMonth == YearMonth.now()) {
         Spacer(Modifier.height(22.dp))
 
         Card(
@@ -355,8 +392,6 @@ private fun TendHomeScreen(
                             modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
                         )
                     }
-                    Spacer(Modifier.weight(1f))
-                    Text("Kategoria opcjonalna", color = Muted, fontSize = 11.sp)
                 } else {
                     Text("Przychód trafi do Rezerwy.", color = Forest, fontSize = 13.sp)
                 }
@@ -387,8 +422,8 @@ private fun TendHomeScreen(
         }
 
         Spacer(Modifier.height(24.dp))
-        Text(if (selectedTab == 2) "Budżet miesiąca" else "Twój miesiąc", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-        if (selectedTab == 2) {
+        Text(if (tab == 2) "Budżet miesiąca" else "Twój miesiąc", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        if (tab == 2) {
             if (!notificationsEnabled) {
                 TextButton(onClick = onEnableNotifications) {
                     Text("Włącz spokojne powiadomienia o limitach")
@@ -420,12 +455,17 @@ private fun TendHomeScreen(
                 val availableCents = (monthlyBudget?.plannedCents ?: 0L) + incomeCents + carryoverCents
                 val hasBudgetPool = monthlyBudget != null || incomeCents != 0L || carryoverCents != 0L
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    SummaryMetric("Do rozdysponowania", if (hasBudgetPool) formatMoney(availableCents) else "Nieustawiony")
-                    SummaryMetric("Rezerwa", if (!hasBudgetPool && allocatedCents == 0L) "—" else formatMoney(availableCents - allocatedCents))
+                    SummaryMetric("Pula miesiąca", if (hasBudgetPool) formatMoney(availableCents) else "Nieustawiona")
+                    SummaryMetric("W limitach", formatMoney(allocatedCents))
                 }
                 Spacer(Modifier.height(10.dp))
                 TextButton(onClick = { showMonthlyBudgetDialog = true }) { Text(if (monthlyBudget == null) "Ustaw budżet miesiąca" else "Edytuj budżet miesiąca", color = Color(0xFFC2D5C9)) }
             }
+        }
+
+        if (tab == 0) {
+            Spacer(Modifier.height(22.dp))
+            ExpenseCategorySummary(entries = entries, categories = categories)
         }
 
         Spacer(Modifier.height(24.dp))
@@ -453,7 +493,7 @@ private fun TendHomeScreen(
             }
         }
 
-        if (selectedTab == 2) {
+        if (tab == 2) {
             Spacer(Modifier.height(26.dp))
             RecurringBillsSection(
                 bills = recurringBills,
@@ -473,7 +513,7 @@ private fun TendHomeScreen(
             )
         }
 
-        if (selectedTab == 0) {
+        if (tab == 0) {
         Spacer(Modifier.height(20.dp))
         Text("Ostatnie wpisy", color = Ink, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(8.dp))
@@ -496,6 +536,7 @@ private fun TendHomeScreen(
             }
         }
         Spacer(Modifier.height(26.dp))
+        }
         }
         }
         }
@@ -1109,6 +1150,89 @@ private fun SummaryMetric(label: String, value: String) {
         Text(label, color = Color(0xFFC2D5C9), fontSize = 12.sp)
         Spacer(Modifier.height(4.dp))
         Text(value, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+private data class ExpenseSlice(val label: String, val amountCents: Long, val color: Color)
+
+private val ExpenseChartColors = listOf(
+    Color(0xFF176B54), Color(0xFF8DB6A0), Color(0xFFE6A45B), Color(0xFF7D83B8),
+    Color(0xFFDB7771), Color(0xFF69A8B5), Color(0xFFB49A62), Color(0xFF9C79A8),
+)
+
+@Composable
+private fun ExpenseCategorySummary(entries: List<LedgerEntry>, categories: List<ExpenseCategory>) {
+    val categoryNames = remember(categories) { categories.associate { it.id to it.name } }
+    val slices = remember(entries, categoryNames) {
+        entries.asSequence()
+            .filter { it.type == "expense" }
+            .groupBy { it.categoryId }
+            .map { (categoryId, categoryEntries) ->
+                categoryId to categoryEntries.sumOf { it.amountCents }
+            }
+            .filter { it.second > 0L }
+            .sortedByDescending { it.second }
+            .mapIndexed { index, (categoryId, amount) ->
+                ExpenseSlice(
+                    label = categoryId?.let { categoryNames[it] } ?: "Bez kategorii",
+                    amountCents = amount,
+                    color = ExpenseChartColors[index % ExpenseChartColors.size],
+                )
+            }
+    }
+    val totalCents = slices.sumOf { it.amountCents }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(Modifier.padding(18.dp)) {
+            Text("Wydatki według kategorii", color = Ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(4.dp))
+            Text("Podział wydatków w tym miesiącu", color = Muted, fontSize = 12.sp)
+            Spacer(Modifier.height(16.dp))
+            if (slices.isEmpty()) {
+                Text("Dodaj wydatek, aby zobaczyć podsumowanie.", color = Muted, fontSize = 13.sp)
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                    Canvas(Modifier.size(144.dp)) {
+                        var startAngle = -90f
+                        slices.forEach { slice ->
+                            val sweep = 360f * slice.amountCents.toFloat() / totalCents.toFloat()
+                            drawArc(
+                                color = slice.color,
+                                startAngle = startAngle,
+                                sweepAngle = sweep,
+                                useCenter = true,
+                            )
+                            startAngle += sweep
+                        }
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(9.dp),
+                    ) {
+                        slices.forEach { slice ->
+                            val percent = (slice.amountCents * 100f / totalCents).roundToInt()
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    modifier = Modifier.size(9.dp),
+                                    shape = CircleShape,
+                                    color = slice.color,
+                                ) {}
+                                Spacer(Modifier.size(7.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(slice.label, color = Ink, fontSize = 12.sp, maxLines = 1)
+                                    Text("${formatMoney(slice.amountCents)} · $percent%", color = Muted, fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
