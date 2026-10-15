@@ -18,6 +18,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -57,6 +59,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -65,7 +69,6 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.Instant
 import java.time.ZoneId
-import java.time.format.TextStyle
 import java.text.NumberFormat
 import java.util.Locale
 import com.tend.app.data.LedgerEntry
@@ -250,38 +253,67 @@ private fun TendHomeScreen(
     var monthlyBudgetAmount by remember(monthlyBudget?.plannedCents) {
         mutableStateOf(monthlyBudget?.plannedCents?.let { String.format(Locale("pl", "PL"), "%.2f", it / 100.0) } ?: "")
     }
-    val month = selectedMonth.month.getDisplayName(TextStyle.FULL, Locale("pl", "PL"))
-    val monthLabel = month.replaceFirstChar { it.titlecase(Locale("pl", "PL")) } + " ${selectedMonth.year}"
+    val monthLabel = polishMonthName(selectedMonth)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Porcelain)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 22.dp, vertical = 22.dp),
+            .safeDrawingPadding(),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column {
-                Text("TEND", color = Forest, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-                Text(monthLabel, color = Ink, fontSize = 27.sp, fontWeight = FontWeight.SemiBold)
+            Text("TEND", color = Forest, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+            if (selectedMonth != YearMonth.now()) {
+                TextButton(onClick = { onMonthChange(YearMonth.now()) }) { Text("Bieżący miesiąc") }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { onMonthChange(selectedMonth.minusMonths(1)) }) { Text("‹", color = Forest, fontSize = 24.sp) }
-                if (selectedMonth != YearMonth.now()) {
-                    TextButton(onClick = { onMonthChange(YearMonth.now()) }) { Text("Dziś") }
+        }
+        Spacer(Modifier.height(4.dp))
+        Surface(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, Line),
+            shadowElevation = 1.dp,
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = { onMonthChange(selectedMonth.minusMonths(1)) }) {
+                    Text("‹", modifier = Modifier.semantics { contentDescription = "Poprzedni miesiąc" }, color = Forest, fontSize = 28.sp)
                 }
-                IconButton(onClick = { onMonthChange(selectedMonth.plusMonths(1)) }) { Text("›", color = Forest, fontSize = 24.sp) }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(monthLabel, color = Ink, fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (selectedMonth == YearMonth.now()) "Bieżący miesiąc" else "Wybrany miesiąc",
+                        color = Muted,
+                        fontSize = 11.sp,
+                    )
+                }
+                IconButton(onClick = { onMonthChange(selectedMonth.plusMonths(1)) }) {
+                    Text("›", modifier = Modifier.semantics { contentDescription = "Następny miesiąc" }, color = Forest, fontSize = 28.sp)
+                }
             }
         }
 
-        if (selectedTab == 1) {
-            Spacer(Modifier.height(14.dp))
-            CalendarContent(entries = entries, categories = categories, month = selectedMonth, onEntryClick = { editingEntry = it })
-        } else {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 22.dp, vertical = 18.dp),
+        ) {
+            if (selectedTab == 1) {
+                Spacer(Modifier.height(14.dp))
+                CalendarContent(entries = entries, categories = categories, month = selectedMonth, onEntryClick = { editingEntry = it })
+            } else {
         if (selectedTab == 0 && selectedMonth != YearMonth.now()) {
             Spacer(Modifier.height(22.dp))
             Text("Podglądasz poprzedni miesiąc. Wróć do bieżącego, aby dodać wpis.", color = Muted, fontSize = 13.sp)
@@ -378,7 +410,7 @@ private fun TendHomeScreen(
             colors = CardDefaults.cardColors(containerColor = Ink),
         ) {
             Column(Modifier.padding(20.dp)) {
-                Text("WYDATKI W ${monthLabel.uppercase(Locale("pl", "PL"))}", color = Color(0xFFC2D5C9), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text("WYDATKI · ${monthLabel.uppercase(Locale("pl", "PL"))}", color = Color(0xFFC2D5C9), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 Spacer(Modifier.height(8.dp))
                 val spentCents = entries.filter { it.type == "expense" }.sumOf { it.amountCents }
                 Text(formatMoney(spentCents), color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.SemiBold)
@@ -467,14 +499,24 @@ private fun TendHomeScreen(
         }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 10.dp),
+            shape = RoundedCornerShape(26.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, Line),
+            shadowElevation = 4.dp,
         ) {
-            NavLabel("Start", selected = selectedTab == 0, onClick = { selectedTab = 0 })
-            NavLabel("Kalendarz", selected = selectedTab == 1, onClick = { selectedTab = 1 })
-            NavLabel("Budżet", selected = selectedTab == 2, onClick = { selectedTab = 2 })
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                BottomNavItem("Start", selectedTab == 0, Modifier.weight(1f)) { selectedTab = 0 }
+                BottomNavItem("Kalendarz", selectedTab == 1, Modifier.weight(1f)) { selectedTab = 1 }
+                BottomNavItem("Budżet", selectedTab == 2, Modifier.weight(1f)) { selectedTab = 2 }
+            }
         }
     }
 
@@ -1069,13 +1111,32 @@ private fun SummaryMetric(label: String, value: String) {
     }
 }
 
+private val PolishMonthNames = listOf(
+    "styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec",
+    "lipiec", "sierpień", "wrzesień", "październik", "listopad", "grudzień",
+)
+
+private fun polishMonthName(month: YearMonth): String =
+    PolishMonthNames[month.monthValue - 1].replaceFirstChar { it.titlecase(Locale("pl", "PL")) } + " ${month.year}"
+
 @Composable
-private fun NavLabel(label: String, selected: Boolean, onClick: () -> Unit) {
-    Text(
-        text = label,
-        color = if (selected) Forest else Muted,
-        fontSize = 13.sp,
-        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-        modifier = Modifier.padding(vertical = 8.dp).clickable(onClick = onClick),
-    )
+private fun BottomNavItem(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Surface(
+        modifier = modifier,
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        color = if (selected) Sage else Color.Transparent,
+    ) {
+        Box(
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = label,
+                color = if (selected) Forest else Muted,
+                fontSize = 13.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            )
+        }
+    }
 }
