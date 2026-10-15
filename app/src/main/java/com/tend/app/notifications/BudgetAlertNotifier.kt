@@ -57,7 +57,6 @@ class BudgetAlertNotifier(private val context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && notificationManager.getNotificationChannel(CHANNEL_ID) == null) {
             notificationManager.createNotificationChannel(
                 NotificationChannel(CHANNEL_ID, "Limity budżetu", NotificationManager.IMPORTANCE_LOW).apply {
-                    description = "Spokojne przypomnienia o miesięcznych limitach kategorii"
                     setSound(null, null)
                     enableVibration(false)
                 },

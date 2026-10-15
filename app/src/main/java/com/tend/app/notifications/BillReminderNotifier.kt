@@ -21,9 +21,7 @@ class BillReminderNotifier(private val context: Context) {
         if (!canNotify()) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager.getNotificationChannel(CHANNEL_ID) == null) {
             manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "Przypomnienia o rachunkach", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                    description = "Powiadomienia o rachunkach wymagających zatwierdzenia"
-                },
+                NotificationChannel(CHANNEL_ID, "Przypomnienia o rachunkach", NotificationManager.IMPORTANCE_DEFAULT),
             )
         }
         val openBills = Intent(context, MainActivity::class.java)
@@ -39,7 +37,6 @@ class BillReminderNotifier(private val context: Context) {
             .setSmallIcon(android.R.drawable.stat_notify_more)
             .setContentTitle("Rachunek do zatwierdzenia")
             .setContentText("${reminder.name} · ${formatMoney(reminder.amountCents)}")
-            .setStyle(Notification.BigTextStyle().bigText("${reminder.name}: ${formatMoney(reminder.amountCents)}. Otwórz Tend, aby dodać wydatek albo pominąć przypomnienie."))
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .build()

@@ -345,10 +345,6 @@ private fun TendHomeScreen(
                 Spacer(Modifier.height(14.dp))
                 CalendarContent(entries = entries, categories = categories, month = selectedMonth, onEntryClick = { editingEntry = it })
             } else {
-        if (tab == 0 && selectedMonth != YearMonth.now()) {
-            Spacer(Modifier.height(22.dp))
-            Text("Podglądasz poprzedni miesiąc. Wróć do bieżącego, aby dodać wpis.", color = Muted, fontSize = 13.sp)
-        }
         if (tab != 2 && selectedMonth == YearMonth.now()) {
         Spacer(Modifier.height(22.dp))
 
@@ -386,8 +382,6 @@ private fun TendHomeScreen(
                             modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
                         )
                     }
-                } else {
-                    Text("Przychód trafi do Rezerwy.", color = Forest, fontSize = 13.sp)
                 }
                 Spacer(Modifier.height(14.dp))
                 Button(
@@ -395,7 +389,7 @@ private fun TendHomeScreen(
                         val cents = parseAmountCents(amount)
                         if (cents != null && cents > 0L) {
                             onAddEntry(cents, if (isIncome) "income" else "expense", if (isIncome) null else selectedCategoryId)
-                            addedMessage = if (isIncome) "Dodano ${formatMoney(cents)} do Rezerwy" else "Dodano ${formatMoney(cents)} do wydatków"
+                            addedMessage = if (isIncome) "Dodano przychód: ${formatMoney(cents)}" else "Dodano wydatek: ${formatMoney(cents)}"
                             amount = ""
                         } else {
                             addedMessage = "Wpisz kwotę większą od zera"
@@ -420,10 +414,8 @@ private fun TendHomeScreen(
         if (tab == 2) {
             if (!notificationsEnabled) {
                 TextButton(onClick = onEnableNotifications) {
-                    Text("Włącz spokojne powiadomienia o limitach")
+                    Text("Włącz powiadomienia o limitach")
                 }
-            } else {
-                Text("Dostaniesz najwyżej dwa ciche alerty na kategorię w miesiącu.", color = Muted, fontSize = 12.sp)
             }
             TextButton(
                 onClick = onCopyPreviousPlan,
@@ -469,7 +461,7 @@ private fun TendHomeScreen(
         }
         Spacer(Modifier.height(10.dp))
         if (categories.isEmpty()) {
-            Text("Dodaj kategorię i ustaw jej miesięczny limit.", color = Muted, fontSize = 14.sp, lineHeight = 20.sp)
+            Text("Brak kategorii.", color = Muted, fontSize = 14.sp)
         } else {
             categories.forEach { category ->
                 val spent = entries.filter { it.categoryId == category.id && it.type == "expense" }.sumOf { it.amountCents }
@@ -512,7 +504,7 @@ private fun TendHomeScreen(
         Text("Ostatnie wpisy", color = Ink, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(8.dp))
         if (entries.isEmpty()) {
-            Text("Twoje wydatki pojawią się tutaj.", color = Muted, fontSize = 13.sp)
+            Text("Brak wpisów.", color = Muted, fontSize = 13.sp)
         } else {
             entries.take(5).forEach { entry ->
                 Row(
@@ -782,8 +774,6 @@ private fun EntryEditorDialog(
                             }
                         }
                     }
-                } else {
-                    Text("Przychód trafia do Rezerwy.", color = Muted, fontSize = 13.sp)
                 }
             }
         },
@@ -841,7 +831,6 @@ private fun RecurringBillsSection(
         Text("Rachunki cykliczne", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
         TextButton(onClick = onAddBill) { Text("+ Dodaj") }
     }
-    Text("Przypomnienie nie doda wydatku bez Twojej zgody.", color = Muted, fontSize = 12.sp)
     Spacer(Modifier.height(10.dp))
 
     if (pendingReminders.isNotEmpty()) {
@@ -872,7 +861,7 @@ private fun RecurringBillsSection(
     }
 
     if (bills.isEmpty()) {
-        Text("Dodaj czynsz, abonament lub inny rachunek, aby dostać przypomnienie w dniu płatności.", color = Muted, fontSize = 13.sp, lineHeight = 19.sp)
+        Text("Brak rachunków cyklicznych.", color = Muted, fontSize = 13.sp)
     } else {
         bills.forEach { bill ->
             Row(
@@ -1185,10 +1174,9 @@ private fun ExpenseCategorySummary(entries: List<LedgerEntry>, categories: List<
         Column(Modifier.padding(18.dp)) {
             Text("Wydatki według kategorii", color = Ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(4.dp))
-            Text("Podział wydatków w tym miesiącu", color = Muted, fontSize = 12.sp)
             Spacer(Modifier.height(16.dp))
             if (slices.isEmpty()) {
-                Text("Dodaj wydatek, aby zobaczyć podsumowanie.", color = Muted, fontSize = 13.sp)
+                Text("Brak wydatków.", color = Muted, fontSize = 13.sp)
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                     Canvas(Modifier.size(144.dp)) {
