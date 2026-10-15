@@ -7,6 +7,8 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -35,14 +37,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -61,6 +67,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -83,6 +90,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.text.NumberFormat
 import java.util.Locale
+import kotlinx.coroutines.delay
 import com.tend.app.data.LedgerEntry
 import com.tend.app.data.CategoryBudget
 import com.tend.app.data.ExpenseCategory
@@ -245,7 +253,8 @@ private fun TendHomeScreen(
     onSkipBillReminder: (BillReminderOccurrence) -> Unit,
 ) {
     var amount by remember { mutableStateOf("") }
-    var addedMessage by remember { mutableStateOf<String?>(null) }
+    var entrySaved by remember { mutableStateOf(false) }
+    var amountError by remember { mutableStateOf(false) }
     var isIncome by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(if (openBillsTab) 2 else 0) }
     var selectedCategoryId by remember { mutableStateOf<String?>(null) }
@@ -266,12 +275,26 @@ private fun TendHomeScreen(
         mutableStateOf(monthlyBudget?.plannedCents?.let { String.format(Locale("pl", "PL"), "%.2f", it / 100.0) } ?: "")
     }
     val monthLabel = polishMonthName(selectedMonth)
+    val spentCents = entries.asSequence().filter { it.type == "expense" }.sumOf { it.amountCents }
+    val incomeCents = entries.asSequence().filter { it.type == "income" }.sumOf { it.amountCents }
+    val availableCents = (monthlyBudget?.plannedCents ?: 0L) + incomeCents + carryoverCents
+    val allocatedCents = budgets.sumOf { it.amountCents }
+    val hasBudgetPool = monthlyBudget != null || incomeCents != 0L || carryoverCents != 0L
+    val reserveCents = availableCents - allocatedCents
+
+    LaunchedEffect(entrySaved) {
+        if (entrySaved) {
+            delay(900)
+            entrySaved = false
+        }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Porcelain)
-            .safeDrawingPadding(),
+            .safeDrawingPadding()
+            .imePadding(),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp),
@@ -363,13 +386,18 @@ private fun TendHomeScreen(
                 }
                 OutlinedTextField(
                     value = amount,
-                    onValueChange = { value -> amount = value.filter { it.isDigit() || it == ',' || it == '.' } },
+                    onValueChange = { value ->
+                        amount = value.filter { it.isDigit() || it == ',' || it == '.' }
+                        amountError = false
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text("0,00", fontSize = 32.sp, color = Color(0xFFABB3AD)) },
                     suffix = { Text("zł", color = Muted, fontSize = 16.sp) },
                     singleLine = true,
                     shape = RoundedCornerShape(18.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    isError = amountError,
+                    supportingText = if (amountError) ({ Text("Wpisz kwotę większą od zera") }) else null,
                 )
                 Spacer(Modifier.height(12.dp))
                 if (!isIncome) Row(verticalAlignment = Alignment.CenterVertically) {
@@ -389,21 +417,34 @@ private fun TendHomeScreen(
                         val cents = parseAmountCents(amount)
                         if (cents != null && cents > 0L) {
                             onAddEntry(cents, if (isIncome) "income" else "expense", if (isIncome) null else selectedCategoryId)
-                            addedMessage = if (isIncome) "Dodano przychód: ${formatMoney(cents)}" else "Dodano wydatek: ${formatMoney(cents)}"
                             amount = ""
+                            amountError = false
+                            entrySaved = true
                         } else {
-                            addedMessage = "Wpisz kwotę większą od zera"
+                            amountError = true
                         }
                     },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Forest),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = animateColorAsState(
+                            if (entrySaved) Color(0xFF2E8068) else Forest,
+                            animationSpec = tween(180),
+                            label = "entry-button-color",
+                        ).value,
+                    ),
                 ) {
-                    Text(if (isIncome) "Dodaj przychód" else "Dodaj wydatek", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                }
-                addedMessage?.let {
-                    Spacer(Modifier.height(10.dp))
-                    Text(it, color = Forest, fontSize = 12.sp)
+                    AnimatedContent(
+                        targetState = entrySaved,
+                        transitionSpec = { fadeIn(tween(140)) togetherWith fadeOut(tween(100)) },
+                        label = "entry-submit-feedback",
+                    ) { saved ->
+                        Text(
+                            if (saved) "Dodano" else if (isIncome) "Dodaj przychód" else "Dodaj wydatek",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                 }
             }
         }
@@ -416,6 +457,9 @@ private fun TendHomeScreen(
                 TextButton(onClick = onEnableNotifications) {
                     Text("Włącz powiadomienia o limitach")
                 }
+            }
+            TextButton(onClick = { showMonthlyBudgetDialog = true }) {
+                Text(if (monthlyBudget == null) "Ustaw budżet miesiąca" else "Edytuj budżet miesiąca")
             }
             TextButton(
                 onClick = onCopyPreviousPlan,
@@ -433,19 +477,30 @@ private fun TendHomeScreen(
             Column(Modifier.padding(20.dp)) {
                 Text("WYDATKI · ${monthLabel.uppercase(Locale("pl", "PL"))}", color = Color(0xFFC2D5C9), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 Spacer(Modifier.height(8.dp))
-                val spentCents = entries.filter { it.type == "expense" }.sumOf { it.amountCents }
                 Text(formatMoney(spentCents), color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(16.dp))
-                val allocatedCents = budgets.sumOf { it.amountCents }
-                val incomeCents = entries.filter { it.type == "income" }.sumOf { it.amountCents }
-                val availableCents = (monthlyBudget?.plannedCents ?: 0L) + incomeCents + carryoverCents
-                val hasBudgetPool = monthlyBudget != null || incomeCents != 0L || carryoverCents != 0L
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    SummaryMetric("Pula miesiąca", if (hasBudgetPool) formatMoney(availableCents) else "Nieustawiona")
-                    SummaryMetric("W limitach", formatMoney(allocatedCents))
+                Spacer(Modifier.height(14.dp))
+                val categoryShare = allocatedCents.coerceAtMost(availableCents.coerceAtLeast(0L))
+                val reserveShare = reserveCents.coerceAtLeast(0L)
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(8.dp)),
+                ) {
+                    if (categoryShare > 0L) {
+                        val assignmentColor = if (reserveCents < 0L) Color(0xFFB96855) else Color(0xFF8DB6A0)
+                        Box(Modifier.weight(categoryShare.toFloat()).fillMaxHeight().background(assignmentColor))
+                    }
+                    if (reserveShare > 0L) {
+                        Box(Modifier.weight(reserveShare.toFloat()).fillMaxHeight().background(Color(0xFFE6A45B)))
+                    }
+                    if (categoryShare == 0L && reserveShare == 0L) {
+                        Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.18f)))
+                    }
                 }
-                Spacer(Modifier.height(10.dp))
-                TextButton(onClick = { showMonthlyBudgetDialog = true }) { Text(if (monthlyBudget == null) "Ustaw budżet miesiąca" else "Edytuj budżet miesiąca", color = Color(0xFFC2D5C9)) }
+                Spacer(Modifier.height(14.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SummaryMetric("Pula", if (hasBudgetPool) formatMoney(availableCents) else "Nieustawiona", Modifier.weight(1f))
+                    SummaryMetric("Kategorie", formatMoney(allocatedCents), Modifier.weight(1f))
+                    SummaryMetric("Rezerwa", if (!hasBudgetPool && allocatedCents == 0L) "—" else formatMoney(reserveCents), Modifier.weight(1f))
+                }
             }
         }
 
@@ -457,7 +512,7 @@ private fun TendHomeScreen(
         Spacer(Modifier.height(24.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Kategorie", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-            TextButton(onClick = { showAddCategory = true }) { Text("+ Kategoria") }
+            if (tab == 2) TextButton(onClick = { showAddCategory = true }) { Text("+ Kategoria") }
         }
         Spacer(Modifier.height(10.dp))
         if (categories.isEmpty()) {
@@ -466,16 +521,24 @@ private fun TendHomeScreen(
             categories.forEach { category ->
                 val spent = entries.filter { it.categoryId == category.id && it.type == "expense" }.sumOf { it.amountCents }
                 val limit = budgets.firstOrNull { it.categoryId == category.id }?.amountCents ?: 0L
-                CategoryBudgetRow(
-                    category = category,
-                    spentCents = spent,
-                    budgetCents = limit,
-                    onEditBudget = {
-                        budgetCategory = category
-                        budgetAmount = if (limit == 0L) "" else String.format(Locale("pl", "PL"), "%.2f", limit / 100.0)
-                    },
-                    onManageCategory = { editingCategory = category },
-                )
+                if (tab == 0) {
+                    CategoryProgressRow(
+                        category = category,
+                        spentCents = spent,
+                        budgetCents = limit,
+                    )
+                } else {
+                    CategoryBudgetRow(
+                        category = category,
+                        spentCents = spent,
+                        budgetCents = limit,
+                        onEditBudget = {
+                            budgetCategory = category
+                            budgetAmount = if (limit == 0L) "" else String.format(Locale("pl", "PL"), "%.2f", limit / 100.0)
+                        },
+                        onManageCategory = { editingCategory = category },
+                    )
+                }
             }
         }
 
@@ -1092,12 +1155,17 @@ private fun CategoryBudgetRow(
     val progressColor = when {
         budgetCents > 0L && spentCents >= budgetCents -> Color(0xFFB96855)
         ratio >= 0.8f -> Color(0xFFB8893E)
-        else -> Forest
+        else -> categoryColor(category.id)
     }
+    val animatedRatio by animateFloatAsState(ratio, animationSpec = tween(450), label = "category-budget-progress")
     Column(Modifier.fillMaxWidth().padding(vertical = 9.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text("${category.name}  ✎", modifier = Modifier.clickable(onClick = onManageCategory), color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(9.dp).background(categoryColor(category.id), CircleShape))
+                    Spacer(Modifier.width(8.dp))
+                    Text("${category.name}  ✎", modifier = Modifier.clickable(onClick = onManageCategory), color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                }
                 Text(
                     if (budgetCents == 0L) "${formatMoney(spentCents)} wydano · bez limitu"
                     else if (spentCents <= budgetCents) "${formatMoney(spentCents)} wydano · ${formatMoney(budgetCents - spentCents)} pozostało z ${formatMoney(budgetCents)}"
@@ -1110,7 +1178,48 @@ private fun CategoryBudgetRow(
         }
         if (budgetCents > 0L) {
             androidx.compose.material3.LinearProgressIndicator(
-                progress = { ratio },
+                progress = { animatedRatio },
+                modifier = Modifier.fillMaxWidth().height(5.dp),
+                color = progressColor,
+                trackColor = Line,
+            )
+            if (spentCents >= budgetCents) Text("Limit osiągnięty", color = progressColor, fontSize = 11.sp)
+            else if (ratio >= 0.8f) Text("Zbliżasz się do limitu", color = progressColor, fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
+private fun CategoryProgressRow(
+    category: ExpenseCategory,
+    spentCents: Long,
+    budgetCents: Long,
+) {
+    val ratio = if (budgetCents > 0L) (spentCents.toFloat() / budgetCents).coerceIn(0f, 1f) else 0f
+    val progressColor = when {
+        budgetCents > 0L && spentCents >= budgetCents -> Color(0xFFB96855)
+        ratio >= 0.8f -> Color(0xFFB8893E)
+        else -> categoryColor(category.id)
+    }
+    val animatedRatio by animateFloatAsState(ratio, animationSpec = tween(450), label = "start-category-progress")
+    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(9.dp).background(categoryColor(category.id), CircleShape))
+            Spacer(Modifier.width(8.dp))
+            Text(category.name, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        }
+        Spacer(Modifier.height(3.dp))
+        Text(
+            if (budgetCents == 0L) "${formatMoney(spentCents)} wydano · bez limitu"
+            else if (spentCents <= budgetCents) "${formatMoney(spentCents)} wydano · ${formatMoney(budgetCents - spentCents)} pozostało"
+            else "${formatMoney(spentCents)} wydano · ${formatMoney(spentCents - budgetCents)} ponad limit",
+            color = Muted,
+            fontSize = 12.sp,
+        )
+        if (budgetCents > 0L) {
+            Spacer(Modifier.height(6.dp))
+            androidx.compose.material3.LinearProgressIndicator(
+                progress = { animatedRatio },
                 modifier = Modifier.fillMaxWidth().height(5.dp),
                 color = progressColor,
                 trackColor = Line,
@@ -1128,11 +1237,11 @@ private fun formatMoney(cents: Long): String =
     NumberFormat.getCurrencyInstance(Locale("pl", "PL")).format(cents / 100.0)
 
 @Composable
-private fun SummaryMetric(label: String, value: String) {
-    Column {
+private fun SummaryMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier) {
         Text(label, color = Color(0xFFC2D5C9), fontSize = 12.sp)
         Spacer(Modifier.height(4.dp))
-        Text(value, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+        Text(value, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1)
     }
 }
 
@@ -1142,6 +1251,9 @@ private val ExpenseChartColors = listOf(
     Color(0xFF176B54), Color(0xFF8DB6A0), Color(0xFFE6A45B), Color(0xFF7D83B8),
     Color(0xFFDB7771), Color(0xFF69A8B5), Color(0xFFB49A62), Color(0xFF9C79A8),
 )
+
+private fun categoryColor(categoryId: String?): Color =
+    if (categoryId == null) Muted else ExpenseChartColors[(categoryId.hashCode() and Int.MAX_VALUE) % ExpenseChartColors.size]
 
 @Composable
 private fun ExpenseCategorySummary(entries: List<LedgerEntry>, categories: List<ExpenseCategory>) {
@@ -1155,11 +1267,11 @@ private fun ExpenseCategorySummary(entries: List<LedgerEntry>, categories: List<
             }
             .filter { it.second > 0L }
             .sortedByDescending { it.second }
-            .mapIndexed { index, (categoryId, amount) ->
+            .map { (categoryId, amount) ->
                 ExpenseSlice(
                     label = categoryId?.let { categoryNames[it] } ?: "Bez kategorii",
                     amountCents = amount,
-                    color = ExpenseChartColors[index % ExpenseChartColors.size],
+                    color = categoryColor(categoryId),
                 )
             }
     }

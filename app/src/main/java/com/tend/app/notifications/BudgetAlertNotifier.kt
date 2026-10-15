@@ -21,18 +21,17 @@ class BudgetAlertNotifier(private val context: Context) {
 
     fun notify(event: BudgetAlertEvent, categoryName: String) {
         createChannelIfNeeded()
-        if (event.warningReached) {
-            show(
-                id = "${event.monthKey}:${event.categoryId}:80".hashCode(),
-                title = "Zbliżasz się do limitu",
-                message = "$categoryName: wykorzystano co najmniej 80% miesięcznego budżetu.",
-            )
-        }
         if (event.limitReached) {
             show(
                 id = "${event.monthKey}:${event.categoryId}:100".hashCode(),
                 title = "Osiągnięto limit",
                 message = "$categoryName: wykorzystano cały miesięczny budżet.",
+            )
+        } else if (event.warningReached) {
+            show(
+                id = "${event.monthKey}:${event.categoryId}:80".hashCode(),
+                title = "Zbliżasz się do limitu",
+                message = "$categoryName: wykorzystano co najmniej 80% miesięcznego budżetu.",
             )
         }
     }
