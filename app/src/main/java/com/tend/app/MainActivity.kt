@@ -280,42 +280,32 @@ private fun TendHomeScreen(
         ) {
             Text("TEND", color = Forest, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
         }
-        if (selectedTab == 1) {
-            Surface(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 10.dp),
-                shape = RoundedCornerShape(24.dp),
-                color = Color.White,
-                border = BorderStroke(1.dp, Line),
-                shadowElevation = 1.dp,
-            ) {
-                Row(
+        Surface(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 10.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, Line),
+            shadowElevation = 1.dp,
+        ) {
+            Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(onClick = { onMonthChange(selectedMonth.minusMonths(1)) }) {
-                        Text("‹", modifier = Modifier.semantics { contentDescription = "Poprzedni miesiąc" }, color = Forest, fontSize = 28.sp)
-                    }
-                    Column(
-                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            monthLabel,
-                            color = Ink,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            softWrap = false,
-                        )
-                        Text(
-                            if (selectedMonth == YearMonth.now()) "Bieżący miesiąc" else "Wybrany miesiąc",
-                            color = Muted,
-                            fontSize = 11.sp,
-                        )
-                    }
-                    IconButton(onClick = { onMonthChange(selectedMonth.plusMonths(1)) }) {
-                        Text("›", modifier = Modifier.semantics { contentDescription = "Następny miesiąc" }, color = Forest, fontSize = 28.sp)
-                    }
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = { onMonthChange(selectedMonth.minusMonths(1)) }) {
+                    Text("‹", modifier = Modifier.semantics { contentDescription = "Poprzedni miesiąc" }, color = Forest, fontSize = 28.sp)
+                }
+                Text(
+                    monthLabel,
+                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                    color = Ink,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    softWrap = false,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+                IconButton(onClick = { onMonthChange(selectedMonth.plusMonths(1)) }) {
+                    Text("›", modifier = Modifier.semantics { contentDescription = "Następny miesiąc" }, color = Forest, fontSize = 28.sp)
                 }
             }
         }
