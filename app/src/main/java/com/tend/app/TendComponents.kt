@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tend.app.data.ExpenseCategory
 import com.tend.app.data.LedgerEntry
+import com.tend.shared.TendPalette
 import java.text.NumberFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -72,13 +73,7 @@ private val PolishMonthNames = listOf(
 internal fun polishMonthName(month: YearMonth): String =
     PolishMonthNames[month.monthValue - 1].replaceFirstChar { it.titlecase(PolishLocale) } + " ${month.year}"
 
-private val CategoryColors = listOf(
-    Color(0xFF176451), Color(0xFF397561), Color(0xFF73A58A), Color(0xFFC69A52),
-    Color(0xFFD6B36B), Color(0xFFC87963), Color(0xFF69818A), Color(0xFF98A284),
-)
-
-internal fun categoryColor(categoryId: String?): Color =
-    if (categoryId == null) Muted else CategoryColors[(categoryId.hashCode() and Int.MAX_VALUE) % CategoryColors.size]
+internal fun categoryColor(categoryId: String?): Color = Color(TendPalette.colorFor(categoryId))
 
 @Composable
 internal fun CalendarContent(

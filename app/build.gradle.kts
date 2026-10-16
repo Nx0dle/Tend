@@ -52,5 +52,8 @@ dependencies {
 
     implementation("androidx.work:work-runtime-ktx:2.12.0")
 
+    implementation(project(":core"))
+    implementation("com.google.android.gms:play-services-wearable:20.0.1")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

@@ -6,13 +6,21 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.tend.app.data.LedgerEntry
 import com.tend.app.data.ExpenseCategory
+import com.tend.app.data.CategoryBudget
 import com.tend.app.data.MonthlyBudget
 import com.tend.app.data.RecurringBill
 import com.tend.app.data.BillReminderOccurrence
 import com.tend.app.data.LedgerRepository
 import com.tend.app.data.TendDatabase
 import com.tend.app.notifications.BudgetAlertNotifier
+import com.tend.app.wear.WearSyncManager
+import com.tend.shared.TendPalette
+import com.tend.shared.WatchCategory
+import com.tend.shared.WatchSnapshot
+import java.time.Instant
+import java.time.LocalDate
 import java.time.YearMonth
+import java.time.ZoneId
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,6 +40,7 @@ class TendViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = LedgerRepository(TendDatabase.get(application))
     private val budgetAlertNotifier = BudgetAlertNotifier(application)
     private val preferences = application.getSharedPreferences("tend_settings", Context.MODE_PRIVATE)
+    private val wearSync = WearSyncManager(application)
 
     private val _carryoverEnabled = MutableStateFlow(preferences.getBoolean("carryover_enabled", false))
     val carryoverEnabled = _carryoverEnabled.asStateFlow()
@@ -71,6 +80,21 @@ class TendViewModel(application: Application) : AndroidViewModel(application) {
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList(),
     )
+
+    init {
+        // Mirror the Start tab to the paired watch whenever current-month data changes.
+        viewModelScope.launch {
+            combine(
+                currentEntries,
+                categories,
+                currentBudgets,
+                currentMonthlyBudget,
+                currentCarryover,
+            ) { entries, categories, budgets, monthlyBudget, carryover ->
+                buildWatchSnapshot(entries, categories, budgets, monthlyBudget, carryover)
+            }.collect { wearSync.push(it) }
+        }
+    }
 
     private fun <T> selectedMonthFlow(selector: (String) -> Flow<T>, initialValue: T): StateFlow<T> =
         _selectedMonth.flatMapLatest { selector(it.toString()) }.stateIn(
@@ -250,6 +274,52 @@ class TendViewModel(application: Application) : AndroidViewModel(application) {
         if (monthKey != YearMonth.now().toString()) return
         if (!budgetAlertNotifier.canNotify()) return
         repository.collectBudgetAlerts(monthKey).forEach(budgetAlertNotifier::notify)
+    }
+
+    /**
+     * Builds the same current-month view the Start tab shows, so the watch mirrors phone values:
+     * total spent, the pool split, and per-category spent/limit.
+     */
+    private fun buildWatchSnapshot(
+        entries: List<LedgerEntry>,
+        categories: List<ExpenseCategory>,
+        budgets: List<CategoryBudget>,
+        monthlyBudget: MonthlyBudget?,
+        carryoverCents: Long,
+    ): WatchSnapshot {
+        val spentCents = entries.asSequence().filter { it.type == LedgerEntry.TYPE_EXPENSE }.sumOf { it.amountCents }
+        val incomeCents = entries.asSequence().filter { it.type == LedgerEntry.TYPE_INCOME }.sumOf { it.amountCents }
+        val availableCents = (monthlyBudget?.plannedCents ?: 0L) + incomeCents + carryoverCents
+        val allocatedCents = budgets.sumOf { it.amountCents }
+        val today = LocalDate.now()
+        val todaySpentCents = entries.asSequence()
+            .filter {
+                it.type == LedgerEntry.TYPE_EXPENSE &&
+                    Instant.ofEpochMilli(it.occurredAtEpochMillis).atZone(ZoneId.systemDefault()).toLocalDate() == today
+            }
+            .sumOf { it.amountCents }
+        val watchCategories = categories.map { category ->
+            WatchCategory(
+                id = category.id,
+                name = category.name,
+                spentCents = entries.asSequence()
+                    .filter { it.categoryId == category.id && it.type == LedgerEntry.TYPE_EXPENSE }
+                    .sumOf { it.amountCents },
+                limitCents = budgets.firstOrNull { it.categoryId == category.id }?.amountCents ?: 0L,
+                colorArgb = TendPalette.colorFor(category.id),
+            )
+        }
+        return WatchSnapshot(
+            monthKey = YearMonth.now().toString(),
+            totalSpentCents = spentCents,
+            availableCents = availableCents,
+            allocatedCents = allocatedCents,
+            reserveCents = availableCents - allocatedCents,
+            hasPool = monthlyBudget != null || incomeCents != 0L || carryoverCents != 0L,
+            todaySpentCents = todaySpentCents,
+            generatedAtEpochMillis = System.currentTimeMillis(),
+            categories = watchCategories,
+        )
     }
 }
 
