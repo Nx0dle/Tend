@@ -81,7 +81,7 @@ class MainActivity : ComponentActivity() {
             val monthlyBudget by viewModel.monthlyBudget.collectAsStateWithLifecycle()
             val currentMonthlyBudget by viewModel.currentMonthlyBudget.collectAsStateWithLifecycle()
             val selectedMonth by viewModel.selectedMonth.collectAsStateWithLifecycle()
-            val copyPlanMessage by viewModel.copyPlanMessage.collectAsStateWithLifecycle()
+            val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
             val carryover by viewModel.carryover.collectAsStateWithLifecycle()
             val currentCarryover by viewModel.currentCarryover.collectAsStateWithLifecycle()
             val carryoverEnabled by viewModel.carryoverEnabled.collectAsStateWithLifecycle()
@@ -105,7 +105,8 @@ class MainActivity : ComponentActivity() {
                         onSetMonthlyBudget = viewModel::setMonthlyBudget,
                         onClearMonthlyBudget = viewModel::clearMonthlyBudget,
                         onCopyPreviousPlan = viewModel::copyPreviousPlan,
-                        copyPlanMessage = copyPlanMessage,
+                        userMessage = userMessage,
+                        onDismissMessage = viewModel::dismissMessage,
                         carryoverCents = carryover,
                         currentCarryoverCents = currentCarryover,
                         carryoverEnabled = carryoverEnabled,

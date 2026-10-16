@@ -19,19 +19,19 @@ class BudgetAlertNotifier(private val context: Context) {
         return notificationManager.areNotificationsEnabled()
     }
 
-    fun notify(event: BudgetAlertEvent, categoryName: String) {
+    fun notify(event: BudgetAlertEvent) {
         createChannelIfNeeded()
         if (event.limitReached) {
             show(
                 id = "${event.monthKey}:${event.categoryId}:100".hashCode(),
                 title = "Osiągnięto limit",
-                message = "$categoryName: wykorzystano cały miesięczny budżet.",
+                message = "${event.categoryName}: wykorzystano cały miesięczny budżet.",
             )
         } else if (event.warningReached) {
             show(
                 id = "${event.monthKey}:${event.categoryId}:80".hashCode(),
                 title = "Zbliżasz się do limitu",
-                message = "$categoryName: wykorzystano co najmniej 80% miesięcznego budżetu.",
+                message = "${event.categoryName}: wykorzystano co najmniej 80% miesięcznego budżetu.",
             )
         }
     }
@@ -43,7 +43,6 @@ class BudgetAlertNotifier(private val context: Context) {
             .setContentText(message)
             .setStyle(Notification.BigTextStyle().bigText(message))
             .setAutoCancel(true)
-            .setPriority(Notification.PRIORITY_LOW)
             .build()
         try {
             notificationManager.notify(id, notification)

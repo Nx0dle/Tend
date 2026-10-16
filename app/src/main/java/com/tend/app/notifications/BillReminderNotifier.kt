@@ -55,7 +55,7 @@ class BillReminderNotifier(private val context: Context) {
     }
 
     private fun formatMoney(cents: Long): String =
-        NumberFormat.getCurrencyInstance(Locale("pl", "PL")).format(cents / 100.0)
+        NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pl-PL")).format(cents / 100.0)
 
     private companion object {
         const val CHANNEL_ID = "bill_reminders"
