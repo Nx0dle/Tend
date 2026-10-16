@@ -8,13 +8,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -36,7 +37,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,7 +64,7 @@ internal fun EntryEditorDialog(
     onSave: (LedgerEntry, Long, String?) -> Unit,
     onDelete: () -> Unit,
 ) {
-    var amount by remember(entry.id) { mutableStateOf(String.format(Locale("pl", "PL"), "%.2f", entry.amountCents / 100.0)) }
+    var amount by remember(entry.id) { mutableStateOf(String.format(Locale.forLanguageTag("pl-PL"), "%.2f", entry.amountCents / 100.0)) }
     var categoryId by remember(entry.id) { mutableStateOf(entry.categoryId) }
     var categoryMenuExpanded by remember { mutableStateOf(false) }
     val selectedCategory = categories.firstOrNull { it.id == categoryId }
@@ -83,26 +83,15 @@ internal fun EntryEditorDialog(
                     colors = tendFieldColors(),
                     singleLine = true,
                 )
-                if (entry.type == "expense") {
+                if (entry.type == LedgerEntry.TYPE_EXPENSE) {
                     Box {
                         CategoryMenuField(selectedCategory?.name ?: "Bez kategorii") { categoryMenuExpanded = true }
-                        DropdownMenu(
+                        CategoryDropdownMenu(
                             expanded = categoryMenuExpanded,
-                            onDismissRequest = { categoryMenuExpanded = false },
-                            shape = RoundedCornerShape(TendRadius.control),
-                            containerColor = Color.White,
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Bez kategorii") },
-                                onClick = { categoryId = null; categoryMenuExpanded = false },
-                            )
-                            categories.forEach { category ->
-                                DropdownMenuItem(
-                                    text = { Text(category.name) },
-                                    onClick = { categoryId = category.id; categoryMenuExpanded = false },
-                                )
-                            }
-                        }
+                            categories = categories,
+                            onDismiss = { categoryMenuExpanded = false },
+                            onSelect = { categoryId = it; categoryMenuExpanded = false },
+                        )
                     }
                 }
             }
@@ -117,6 +106,32 @@ internal fun EntryEditorDialog(
                 TextButton(onClick = onDismiss) { Text("Anuluj") }
             }
         },
+    )
+}
+
+@Composable
+internal fun AddCategoryDialog(
+    onDismiss: () -> Unit,
+    onAdd: (String) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    TendDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Nowa kategoria") },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Nazwa") },
+                shape = RoundedCornerShape(TendRadius.control),
+                colors = tendFieldColors(),
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onAdd(name); onDismiss() }, enabled = name.isNotBlank()) { Text("Dodaj") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Anuluj") } },
     )
 }
 
@@ -190,8 +205,8 @@ internal fun RecurringBillsSection(
                     val categoryName = categories.firstOrNull { it.id == reminder.categoryId }?.name
                     Text(
                         listOfNotNull(formatMoney(reminder.amountCents), formatEntryDate(reminder.dueAtEpochMillis), categoryName).joinToString(" · "),
+                        style = TendType.caption,
                         color = Muted,
-                        fontSize = 12.sp,
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         TextButton(onClick = { onSkipReminder(reminder) }) { Text("Pomiń") }
@@ -204,7 +219,7 @@ internal fun RecurringBillsSection(
     }
 
     if (bills.isEmpty()) {
-        Text("Brak rachunków cyklicznych.", color = Muted, fontSize = 13.sp)
+        Text("Brak rachunków cyklicznych.", style = TendType.micro, color = Muted)
     } else {
         bills.forEach { bill ->
             Row(
@@ -212,8 +227,8 @@ internal fun RecurringBillsSection(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(bill.name, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("${formatMoney(bill.amountCents)} · co miesiąc, dzień ${bill.dayOfMonth}", color = Muted, fontSize = 12.sp)
+                    Text(bill.name, style = TendType.rowTitle, color = Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("${formatMoney(bill.amountCents)} · co miesiąc, dzień ${bill.dayOfMonth}", style = TendType.caption, color = Muted)
                 }
                 TextButton(onClick = { onEditBill(bill) }) { Text("Edytuj") }
                 TextButton(onClick = { onDeleteBill(bill) }) { Text("Usuń", color = Danger) }
@@ -231,7 +246,7 @@ internal fun RecurringBillEditorDialog(
 ) {
     var name by remember(bill?.id) { mutableStateOf(bill?.name.orEmpty()) }
     var amount by remember(bill?.id) {
-        mutableStateOf(bill?.amountCents?.let { String.format(Locale("pl", "PL"), "%.2f", it / 100.0) }.orEmpty())
+        mutableStateOf(bill?.amountCents?.let { String.format(Locale.forLanguageTag("pl-PL"), "%.2f", it / 100.0) }.orEmpty())
     }
     var categoryId by remember(bill?.id) { mutableStateOf(bill?.categoryId) }
     var day by remember(bill?.id) { mutableStateOf((bill?.dayOfMonth ?: 1).toString()) }
@@ -271,23 +286,12 @@ internal fun RecurringBillEditorDialog(
                 )
                 Box {
                     CategoryMenuField(selectedCategory?.name ?: "Bez kategorii") { categoryMenuExpanded = true }
-                    DropdownMenu(
+                    CategoryDropdownMenu(
                         expanded = categoryMenuExpanded,
-                        onDismissRequest = { categoryMenuExpanded = false },
-                        shape = RoundedCornerShape(TendRadius.control),
-                        containerColor = Color.White,
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Bez kategorii") },
-                            onClick = { categoryId = null; categoryMenuExpanded = false },
-                        )
-                        categories.forEach { category ->
-                            DropdownMenuItem(
-                                text = { Text(category.name) },
-                                onClick = { categoryId = category.id; categoryMenuExpanded = false },
-                            )
-                        }
-                    }
+                        categories = categories,
+                        onDismiss = { categoryMenuExpanded = false },
+                        onSelect = { categoryId = it; categoryMenuExpanded = false },
+                    )
                 }
             }
         },
@@ -301,6 +305,27 @@ internal fun RecurringBillEditorDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Anuluj") } },
     )
+}
+
+/** Shared category picker used by the entry editor and bill editor. */
+@Composable
+private fun CategoryDropdownMenu(
+    expanded: Boolean,
+    categories: List<ExpenseCategory>,
+    onDismiss: () -> Unit,
+    onSelect: (String?) -> Unit,
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(TendRadius.control),
+        containerColor = Color.White,
+    ) {
+        DropdownMenuItem(text = { Text("Bez kategorii") }, onClick = { onSelect(null) })
+        categories.forEach { category ->
+            DropdownMenuItem(text = { Text(category.name) }, onClick = { onSelect(category.id) })
+        }
+    }
 }
 
 internal fun parseAmountCents(amount: String): Long? = runCatching {
@@ -345,9 +370,11 @@ internal fun TendDialog(
                     }
 
                     Spacer(Modifier.width(TendSpace.medium))
-                    Surface(onClick = onDismissRequest, shape = CircleShape, color = Sage) {
-                        Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
-                            Text("×", color = DeepForest, fontSize = 20.sp, fontWeight = FontWeight.Medium)
+                    Box(Modifier.size(TendSize.iconButton), contentAlignment = Alignment.Center) {
+                        Surface(onClick = onDismissRequest, modifier = Modifier.size(TendSize.iconVisual), shape = CircleShape, color = Sage) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("×", color = DeepForest, fontSize = 20.sp, fontWeight = FontWeight.Medium)
+                            }
                         }
                     }
                 }
@@ -392,7 +419,7 @@ internal fun BudgetPlanOptionsDialog(
                 Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(TendSpace.medium),
             ) {
-                Text(monthLabel, color = Forest, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(monthLabel, color = Forest, style = TendType.compactLabel)
                 Surface(
                     color = Color.White,
                     shape = RoundedCornerShape(TendRadius.control),
@@ -415,7 +442,7 @@ internal fun BudgetPlanOptionsDialog(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text("Przenoszenie salda", color = Ink, fontWeight = FontWeight.SemiBold)
-                                Text(if (carryoverEnabled) "Włączone · ${formatMoney(carryoverCents)}" else "Wyłączone", color = Muted, fontSize = 12.sp)
+                                Text(if (carryoverEnabled) "Włączone · ${formatMoney(carryoverCents)}" else "Wyłączone", style = TendType.caption, color = Muted)
                             }
                             Switch(checked = carryoverEnabled, onCheckedChange = onCarryoverChange)
                         }
@@ -430,7 +457,7 @@ internal fun BudgetPlanOptionsDialog(
                 ) {
                     Column(Modifier.fillMaxWidth().padding(TendSpace.large)) {
                         Text("Skopiuj limity kategorii", color = if (canCopyPreviousPlan) Ink else Muted, fontWeight = FontWeight.SemiBold)
-                        Text(if (canCopyPreviousPlan) "Z poprzedniego miesiąca" else "Limity są już ustawione", color = Muted, fontSize = 12.sp)
+                        Text(if (canCopyPreviousPlan) "Z poprzedniego miesiąca" else "Limity są już ustawione", style = TendType.caption, color = Muted)
                     }
                 }
             }
@@ -453,7 +480,7 @@ internal fun CategoryChoiceRow(label: String, selected: Boolean, onClick: () -> 
             horizontalArrangement = Arrangement.spacedBy(TendSpace.medium),
         ) {
             Box(Modifier.size(11.dp).clip(CircleShape).background(if (selected) Gold else Sage))
-            Text(label, modifier = Modifier.weight(1f), color = Ink, fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
+            Text(label, modifier = Modifier.weight(1f), color = Ink, style = TendType.rowTitle, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
             if (selected) Text("✓", color = Forest, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
     }
@@ -484,8 +511,9 @@ internal fun EntryModeChoice(label: String, selected: Boolean, onClick: () -> Un
     }
 }
 
+/** Shared dropdown-style field. Uses one chevron glyph across the app. */
 @Composable
-private fun CategoryMenuField(label: String, onClick: () -> Unit) {
+internal fun CategoryMenuField(label: String, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(TendRadius.control),
@@ -497,7 +525,7 @@ private fun CategoryMenuField(label: String, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(label, modifier = Modifier.weight(1f), color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(label, modifier = Modifier.weight(1f), style = TendType.rowTitle, color = Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("⌄", color = Forest, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
         }
     }
@@ -518,7 +546,7 @@ internal fun tendFieldColors() = OutlinedTextFieldDefaults.colors(
 
 @Composable
 internal fun MonthArrow(symbol: String, description: String, onClick: () -> Unit) {
-    Surface(onClick = onClick, modifier = Modifier.size(44.dp), shape = CircleShape, color = Color.White.copy(alpha = 0.75f)) {
+    Surface(onClick = onClick, modifier = Modifier.size(TendSize.iconButton), shape = CircleShape, color = Color.White.copy(alpha = 0.75f)) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(symbol, modifier = Modifier.semantics { contentDescription = description }, color = Ink, fontSize = 23.sp, fontWeight = FontWeight.Medium)
         }
