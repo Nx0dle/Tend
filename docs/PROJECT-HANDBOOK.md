@@ -76,6 +76,8 @@ Dolna nawigacja prowadzi do trzech odrębnych zadań. Gest poziomy pozwala przec
 - Moduł `wear` używa tego samego `applicationId` (`com.tend.app`) co telefon. Wear Data Layer wymaga zgodnej nazwy pakietu i podpisu po obu stronach; bez tego zegarek nie odczyta danych. Namespace kodu pozostaje `com.tend.wear`.
 - Kafelek (`TendTileService`) nie przewija się, więc pokazuje tyle wierszy, ile mieści się na ekranie, plus licznik „+N więcej”, i otwiera aplikację po dotknięciu. Pełna, przewijalna lista kategorii jest w `WearApp`.
 - Ekran (`WearApp`) używa `ScalingLazyColumn` z `androidx.wear.compose:compose-foundation`, więc treść skaluje się i zanika przy krawędziach okrągłego ekranu, a lista domyślnie reaguje na obracany/pierścień wirtualny z haptycznym „tyknięciem” na element — bez własnego kodu rotacji.
+- Układ jest „center‑based”: Wear domyślnie wyśrodkowuje element o indeksie 1, dlatego ekran ustawia `initialCenterItemIndex = 0` i `AutoCenteringParams(itemIndex = 0)`, aby nagłówek trafiał w środek okręgu, a nie pod górny łuk. Nie zmieniaj tych dwóch wartości razem z kolejnością elementów.
+- Tekst trzymaj krótki, żeby zmieścił się w kole: poziomy `contentPadding` to 16 dp, a poboczne kwoty (pula, podpisy kategorii) formatuje `compactMoney` (bez groszy) zamiast pełnego `formatWatchMoney`. Pełna kwota z groszami zostaje w nagłówku jako liczba główna.
 - Ikona launchera to adaptacyjna ikona (`mipmap-anydpi-v26/ic_launcher`) z zielonym tłem marki i wektorowym znakiem „t” (`drawable/ic_tend_foreground.xml`) dopasowanym do bezpiecznej strefy okrągłego ekranu, plus warstwa `monochrome`.
 - Zegarek jest tylko odbiorcą: brak własnej bazy i historii. Gdy proces telefonu jest zabity, migawka nie jest odświeżana; zegarek pokazuje ostatni znany stan.
 
