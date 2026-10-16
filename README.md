@@ -12,6 +12,10 @@ Category budget alerts are optional and quiet: the app asks for notification acc
 
 Still to implement: optional end-to-end encrypted sync. Android automatic backup is disabled while there is no user-controlled encrypted backup or sync, so reinstalling the app or losing the device can currently lose local data. Add a safe export/recovery path before release.
 
+## Wear OS companion
+
+A Wear OS watch can show the current-month category limits as a Tile ("widget") and as a scrollable in-app list, matching the phone's Start tab: a progress bar when a category has a limit, and just the amount when it does not. The phone computes the snapshot from the same flows as Start and pushes it over the Wear Data Layer; the watch only reads it, so the Room database stays phone-only. Sync currently updates while the phone app process is running.
+
 ## Build environment
 
 The project targets JDK 17, Android SDK 36, and Gradle 8.14.4. Gradle is provided by the project wrapper. Room schemas are exported to `app/schemas`; commit them alongside schema changes.
@@ -25,6 +29,8 @@ The project targets JDK 17, Android SDK 36, and Gradle 8.14.4. Gradle is provide
 - `TendComponents.kt` contains the shared hero card, allocation bar, category/entry rows, calendar, and formatters.
 - `TendDialogs.kt` contains editing flows and the custom Tend dialog/input components.
 - `TendTheme.kt` defines the palette and semantic colors plus the spacing, shape, size, motion, and type tokens, and the Material theme.
+
+The project also ships a Wear OS companion. `core/` holds the shared phone↔watch contract (snapshot model, JSON codec, money formatting, palette). `wear/` is the watch app: a quick-view Tile and a scrollable category list that mirror the Start tab. The phone pushes the current-month snapshot over the Wear Data Layer; the watch is read-only and never owns the database.
 
 The persistent visual and interaction rules live in [`docs/UI-GUIDELINES.md`](docs/UI-GUIDELINES.md). Treat it as the source of truth when adding or changing UI.
 

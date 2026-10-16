@@ -67,12 +67,23 @@ Dolna nawigacja prowadzi do trzech odrębnych zadań. Gest poziomy pozwala przec
 - Kopiowanie nieistniejących limitów kategorii z miesiąca poprzedniego, bez puli środków.
 - Opcjonalne ciche alerty progów kategorii (80% i limit) dla bieżącego miesiąca. Szczegół techniczny o częstotliwości wysyłania należy do kodu/logiki, a nie do głównej treści UI.
 - Rachunki cykliczne z kategorią, kwotą i dniem miesiąca. Gdy termin minie, powstaje propozycja; dopiero ręczne zatwierdzenie zapisuje wydatek. Pominięcie nie dodaje wydatku. Dni przekraczające długość miesiąca są ograniczane do ostatniego dnia.
+- Zegarek Wear OS (moduł `wear`): kafelek (Tile) z sumą miesiąca i paskami limitów kategorii oraz przewijalny ekran z pełną listą kategorii — dokładnie jak sekcja kategorii na Start. Widok jest tylko do odczytu i lustrzany wobec bieżącego miesiąca Start; dane trafiają z telefonu przez Wear Data Layer. Telefon pozostaje jedynym miejscem zapisu.
+
+### Zegarek Wear OS (companion)
+
+- Utrzymuj jeden kontrakt danych w module `core` (`WatchSync`): model migawki, kodek JSON, formatowanie kwot i paleta kolorów są wspólne dla telefonu i zegarka. Nie duplikuj ich per moduł.
+- Telefon liczy migawkę w `TendViewModel.buildWatchSnapshot` z tych samych strumieni co Start (bieżące wpisy, kategorie, limity, pula, przenoszone saldo) i wypycha ją w `WearSyncManager` ścieżką `WatchSync.SNAPSHOT_PATH`. Baza Room nigdy nie opuszcza telefonu; zegarek dostaje wyłącznie ostatnią migawkę.
+- Moduł `wear` używa tego samego `applicationId` (`com.tend.app`) co telefon. Wear Data Layer wymaga zgodnej nazwy pakietu i podpisu po obu stronach; bez tego zegarek nie odczyta danych. Namespace kodu pozostaje `com.tend.wear`.
+- Kafelek (`TendTileService`) nie przewija się, więc pokazuje tyle wierszy, ile mieści się na ekranie, plus licznik „+N więcej”, i otwiera aplikację po dotknięciu. Pełna, przewijalna lista kategorii jest w `WearApp`.
+- Zegarek jest tylko odbiorcą: brak własnej bazy i historii. Gdy proces telefonu jest zabity, migawka nie jest odświeżana; zegarek pokazuje ostatni znany stan.
+
 
 ## 5. Zakres poza obecnym wydaniem
 
 - Szyfrowana synchronizacja end-to-end jest planowana, ale nie jest zaimplementowana.
 - Brakuje bezpiecznej, kontrolowanej przez użytkownika ścieżki eksportu/odzyskiwania. Automatyczny backup Androida jest wyłączony, aby nie kopiować nieszyfrowanych danych; reinstalacja lub utrata urządzenia może oznaczać utratę lokalnych danych.
 - Nie konfiguruj fikcyjnego backendu, sekretów Firebase ani pozornej synchronizacji. Najpierw zaprojektuj model kluczy, odzyskiwanie, wersjonowanie i konflikty; patrz `docs/ROADMAP.md`.
+- Migawka na zegarek jest wypychana tylko, gdy proces aplikacji telefonu działa. Odświeżanie w tle (usługa Data Layer nasłuchująca zmian) oraz odpytywanie na żądanie z zegarka nie są jeszcze zaimplementowane.
 
 ## 6. Język wizualny i UX
 
@@ -104,6 +115,9 @@ Szczegółowe, trwałe zasady znajdują się w [`UI-GUIDELINES.md`](UI-GUIDELINE
 | Encje i Room | `.../data/*.kt` | Tabele, DAO, baza, repozytorium, transakcje i obliczenia domenowe |
 | Przypomnienia rachunków | `.../notifications/BillReminder*.kt` | Harmonogram workerów i obsługa powiadomienia/propozycji |
 | Alerty budżetowe | `.../notifications/BudgetAlertNotifier.kt` | Kanał i dostarczenie alertu przekroczenia limitu |
+| Wspólny kontrakt (telefon↔zegarek) | `core/src/main/java/com/tend/shared/WatchSync.kt` | Model migawki, kodek JSON, formatowanie kwot i paleta wspólne dla obu modułów |
+| Synchronizacja na telefonie | `app/src/main/java/com/tend/app/wear/WearSyncManager.kt` | Wypchnięcie migawki bieżącego miesiąca przez Wear Data Layer |
+| Zegarek Wear OS | `wear/src/main/java/com/tend/wear/TendTileService.kt`, `.../WearApp.kt`, `.../WatchSnapshotStore.kt` | Kafelek i przewijalny ekran; odczyt migawki z Data Layer |
 
 Stan wpisów/planów jest lokalnie przechowywany w Room. ViewModel udostępnia osobne strumienie bieżącego miesiąca i wybranego miesiąca, dzięki czemu Start nie podąża za historią Budżetu/Kalendarza. Nie przenoś logiki SQL, reguł finansowych ani trwałego zapisu do Composable. Zapis ma przechodzić przez ViewModel → `LedgerRepository` → DAO. Schematy Room są eksportowane do `app/schemas` (plugin `androidx.room`); commituj je razem ze zmianą schematu, bo są punktem odniesienia dla migracji.
 
@@ -113,7 +127,8 @@ Stan wpisów/planów jest lokalnie przechowywany w Room. ViewModel udostępnia o
 - Namespace/application id: `com.tend.app`.
 - `minSdk 26`, `compileSdk 36`, `targetSdk 36`, Java 17, Gradle wrapper 8.14.4.
 - Główny moduł aplikacji: `app`.
-- Lokalny build: `./gradlew assembleDebug`.
+- Moduły companion: `core` (biblioteka Androida z kontraktem danych wspólnym dla telefonu i zegarka) oraz `wear` (aplikacja Wear OS: kafelek + ekran). Zegarek używa Compose, `androidx.wear.tiles` i `play-services-wearable` (Wear Data Layer). `wear` ma `minSdk 30`.
+- Lokalny build: `./gradlew assembleDebug` (buduje wszystkie moduły).
 - Pliki lokalnego środowiska (`local.properties`, SDK paths, sekrety) nie powinny wchodzić do commitów.
 
 ## 9. Workflow dla kolejnych zmian

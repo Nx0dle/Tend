@@ -12,6 +12,7 @@ Repozytorium startuje od jednego bazowego snapshotu istniejącej aplikacji. Kole
 - Zapisy mają wspólną obsługę błędów z komunikatem w nagłówku zamiast cichej porażki. Schematy Room są eksportowane do `app/schemas` jako punkt odniesienia dla migracji.
 - Ciche alerty po wykorzystaniu 80% i 100% limitu kategorii.
 - Rachunki cykliczne z przypomnieniem i ręcznym zatwierdzeniem wydatku.
+- Companion Wear OS: kafelek z sumą i paskami limitów oraz przewijalny ekran z pełną listą kategorii, lustrzany wobec Start. Dane trafiają z telefonu przez Wear Data Layer; zegarek jest tylko odbiorcą (moduły `core` i `wear`).
 - Aktualizuj `PROJECT-HANDBOOK.md`, `UI-GUIDELINES.md` (gdy dotyczy), README oraz ten plan przy zmianie założeń, funkcji, architektury lub statusu prac.
 
 ## Następne segmenty
@@ -50,5 +51,14 @@ Gałąź: `chore/release-readiness`
 - Uzupełnić instrukcję konfiguracji i budowania.
 - Sprawdzić uprawnienia, kopię zapasową danych i zachowanie po aktualizacji.
 - Przygotować wersję do dystrybucji.
+
+### 5. Zegarek Wear OS — utrwalenie
+
+Gałąź: `feat/wear-hardening`
+
+- Odświeżanie w tle: nasłuch zmian danych po stronie telefonu (usługa Data Layer) tak, by zegarek aktualizował się bez otwierania aplikacji telefonu.
+- Odpytywanie na żądanie z zegarka i czytelny stan „ostatnia synchronizacja”.
+- Weryfikacja na prawdziwym zegarku (kafelek, ekran, układ na okrągłym ekranie, duże czcionki) oraz testy kodeka migawki.
+- Rozważyć uzupełnienie kompozycji o warianty okrągłe i obsługę trybu ambient.
 
 Każdy segment powinien kończyć się spójnym commitem. Nie łączymy zmian konfiguracji środowiska lokalnego ani artefaktów kompilacji z kodem aplikacji.
