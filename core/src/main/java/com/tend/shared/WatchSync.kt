@@ -52,6 +52,18 @@ fun formatWatchMoney(cents: Long): String =
     NumberFormat.getCurrencyInstance(PolishLocale).format(cents / 100.0)
 
 /**
+ * Whole-złoty variant (`7 700 zł`) for layouts with very little room, such as the round watch
+ * screen and the Tile. The hero total keeps the full precision of [formatWatchMoney].
+ */
+fun formatWatchMoneyCompact(cents: Long): String = CompactPolishCurrency.format(cents / 100.0)
+
+private val CompactPolishCurrency: NumberFormat =
+    NumberFormat.getCurrencyInstance(PolishLocale).apply {
+        maximumFractionDigits = 0
+        minimumFractionDigits = 0
+    }
+
+/**
  * Single source for category accents, mirroring the phone palette so a category keeps its color on
  * the watch. Values are ARGB longs.
  */

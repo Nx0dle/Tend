@@ -38,15 +38,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.AutoCenteringParams
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.ScalingLazyColumnDefaults
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
+import androidx.wear.compose.foundation.rotary.RotaryScrollableDefaults
 import com.tend.shared.WatchCategory
 import com.tend.shared.WatchSnapshot
 import com.tend.shared.formatWatchMoney
+import com.tend.shared.formatWatchMoneyCompact
 import com.tend.shared.limitRatio
-import java.text.NumberFormat
 import java.time.YearMonth
-import java.util.Locale
 
 /**
  * Wear app screen: a scrollable, phone-identical list of categories. A category with a limit shows a
@@ -90,6 +91,10 @@ private fun SnapshotList(snapshot: WatchSnapshot, onRefresh: () -> Unit) {
         state = listState,
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
+        // Snapping: items settle dead-centre instead of stopping anywhere, both for the finger and
+        // for the rotating/virtual bezel. The rotary variant keeps the per-item haptic tick.
+        flingBehavior = ScalingLazyColumnDefaults.snapFlingBehavior(listState),
+        rotaryScrollableBehavior = RotaryScrollableDefaults.snapBehavior(listState),
         // Wear defaults centre item 1; centre the header (item 0) so the top of the list sits in
         // the middle of the round display instead of curling off under the top edge.
         autoCentering = AutoCenteringParams(itemIndex = 0),
@@ -118,33 +123,40 @@ private fun SnapshotList(snapshot: WatchSnapshot, onRefresh: () -> Unit) {
 
 @Composable
 private fun Header(snapshot: WatchSnapshot) {
-    Column(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Text(
             "WYDATKI W MIESIĄCU",
             color = Muted,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 1.2.sp,
+            textAlign = TextAlign.Center,
         )
         Text(
             formatWatchMoney(snapshot.totalSpentCents),
             color = Ink,
             fontSize = 26.sp,
             fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
         )
         Text(
             polishMonth(snapshot.monthKey),
             color = Forest,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
         )
         if (snapshot.hasPool) {
             Text(
-                "Pula ${compactMoney(snapshot.availableCents)} · Limity ${compactMoney(snapshot.allocatedCents)}",
+                "Pula ${formatWatchMoneyCompact(snapshot.availableCents)} · Limity ${formatWatchMoneyCompact(snapshot.allocatedCents)}",
                 color = Muted,
                 fontSize = 11.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
             )
         }
     }
@@ -200,11 +212,11 @@ private fun CategoryRow(category: WatchCategory) {
 }
 
 private fun caption(category: WatchCategory, hasLimit: Boolean): String = when {
-    !hasLimit -> "${compactMoney(category.spentCents)} · bez limitu"
+    !hasLimit -> "${formatWatchMoneyCompact(category.spentCents)} · bez limitu"
     category.spentCents <= category.limitCents ->
-        "${compactMoney(category.spentCents)} · zostało ${compactMoney(category.limitCents - category.spentCents)}"
+        "${formatWatchMoneyCompact(category.spentCents)} · zostało ${formatWatchMoneyCompact(category.limitCents - category.spentCents)}"
     else ->
-        "${compactMoney(category.spentCents)} · ponad limit o ${compactMoney(category.spentCents - category.limitCents)}"
+        "${formatWatchMoneyCompact(category.spentCents)} · ponad limit o ${formatWatchMoneyCompact(category.spentCents - category.limitCents)}"
 }
 
 @Composable
@@ -252,15 +264,6 @@ private fun EmptyState(onRetry: () -> Unit) {
         RefreshButton(onRetry)
     }
 }
-
-/** Compact "zł" for the pool line (whole złoty only) so it fits one line on the round face. */
-private val CompactMoneyFormat: NumberFormat =
-    NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pl-PL")).apply {
-        maximumFractionDigits = 0
-        minimumFractionDigits = 0
-    }
-
-private fun compactMoney(cents: Long): String = CompactMoneyFormat.format(cents / 100.0)
 
 private val PolishMonths = listOf(
     "Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec",
