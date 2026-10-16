@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tend.app.data.ExpenseCategory
@@ -158,7 +159,9 @@ internal fun CalendarContent(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         date.format(java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale("pl", "PL"))).replaceFirstChar { it.titlecase(Locale("pl", "PL")) },
+                        modifier = Modifier.weight(1f),
                         color = Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                     if (dayExpenses > 0L) Text(formatMoney(dayExpenses), color = Forest, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
@@ -171,9 +174,9 @@ internal fun CalendarContent(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Column {
+                            Column(Modifier.weight(1f)) {
                                 val category = categories.firstOrNull { it.id == entry.categoryId }?.name ?: "Bez kategorii"
-                                Text(if (entry.type == "income") "Przychód" else category, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                Text(if (entry.type == "income") "Przychód" else category, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(formatEntryDate(entry.occurredAtEpochMillis), color = Muted, fontSize = 11.sp)
                             }
                             Text("${if (entry.type == "income") "+" else "−"} ${formatMoney(entry.amountCents)}", color = if (entry.type == "income") Forest else Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
@@ -202,8 +205,43 @@ internal fun TendBadge(
             color = color,
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = TendSpace.small, vertical = 2.dp),
         )
+    }
+}
+
+@Composable
+internal fun TendSectionHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+    badge: (@Composable () -> Unit)? = null,
+    action: (@Composable () -> Unit)? = null,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(TendSpace.small),
+        ) {
+            Text(
+                text = title,
+                modifier = Modifier.weight(1f, fill = false),
+                color = Ink,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            badge?.invoke()
+        }
+        action?.invoke()
     }
 }
 
@@ -232,7 +270,7 @@ internal fun CategoryBudgetRow(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(9.dp).background(categoryColor(category.id), CircleShape))
                     Spacer(Modifier.width(8.dp))
-                    Text("${category.name}  ✎", modifier = Modifier.clickable(onClick = onManageCategory), color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    Text("${category.name}  ✎", modifier = Modifier.weight(1f, fill = false).clickable(onClick = onManageCategory), color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (budgetCents > 0L && spentCents > budgetCents) {
                         Spacer(Modifier.width(TendSpace.small))
                         TendBadge("Ponad limit", color = Danger, containerColor = Danger.copy(alpha = 0.12f))
@@ -287,7 +325,7 @@ internal fun CategoryProgressRow(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(9.dp).background(categoryColor(category.id), CircleShape))
             Spacer(Modifier.width(8.dp))
-            Text(category.name, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(category.name, modifier = Modifier.weight(1f, fill = false), color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (budgetCents > 0L && spentCents > budgetCents) {
                 Spacer(Modifier.width(TendSpace.small))
                 TendBadge("Ponad limit", color = Danger, containerColor = Danger.copy(alpha = 0.12f))
@@ -325,9 +363,9 @@ internal fun formatMoney(cents: Long): String =
 @Composable
 internal fun SummaryMetric(label: String, value: String, modifier: Modifier = Modifier) {
     Column(modifier) {
-        Text(label, color = Color(0xFFC2D5C9), fontSize = 12.sp)
+        Text(label, color = Color(0xFFC2D5C9), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(TendSpace.xsmall))
-        Text(value, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+        Text(value, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

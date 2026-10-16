@@ -58,6 +58,7 @@ import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tend.app.data.BillReminderOccurrence
@@ -327,7 +328,7 @@ internal fun TendHomeScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TendSpace.small)) {
+                                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TendSpace.small)) {
                                     Text("DZISIAJ", color = Forest, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp)
                                     val expenseCountLabel = when {
                                         todayExpenses.size == 1 -> "1 wydatek"
@@ -378,6 +379,7 @@ internal fun TendHomeScreen(
                                         val selectedCategory = categories.firstOrNull { it.id == selectedCategoryId }
                                         Surface(
                                             modifier = Modifier
+                                                .weight(1f, fill = false)
                                                 .clip(CircleShape)
                                                 .clickable { showCategoryPicker = true },
                                             shape = CircleShape,
@@ -400,9 +402,12 @@ internal fun TendHomeScreen(
                                                 }
                                                 Text(
                                                     text = selectedCategory?.name ?: "Bez kategorii",
+                                                    modifier = Modifier.weight(1f, fill = false),
                                                     color = Forest,
                                                     fontSize = 12.sp,
                                                     fontWeight = FontWeight.SemiBold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
                                                 )
                                                 Text("▾", color = Forest, fontSize = 11.sp)
                                             }
@@ -508,9 +513,7 @@ internal fun TendHomeScreen(
 
                         Spacer(Modifier.height(TendSpace.xlarge))
 
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text("Kategorie", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-                        }
+                        TendSectionHeader("Kategorie")
                         Spacer(Modifier.height(TendSpace.small))
                         if (categories.isEmpty()) {
                             Text("Brak kategorii.", color = Muted, fontSize = 14.sp)
@@ -528,23 +531,21 @@ internal fun TendHomeScreen(
 
                         Spacer(Modifier.height(TendSpace.xlarge))
 
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TendSpace.small)) {
-                                Text("Ostatnie wpisy", color = Ink, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                        TendSectionHeader(
+                            title = "Ostatnie wpisy",
+                            badge = {
                                 if (displayEntries.isNotEmpty()) {
                                     TendBadge("${displayEntries.size}", color = Muted, containerColor = Line.copy(alpha = 0.5f))
                                 }
-                            }
-                            if (displayEntries.size > 5) {
-                                TextButton(onClick = { recentEntriesExpanded = !recentEntriesExpanded }) {
-                                    Text(if (recentEntriesExpanded) "Zwiń" else "Pokaż więcej (${displayEntries.size})")
+                            },
+                            action = {
+                                if (displayEntries.size > 5) {
+                                    TextButton(onClick = { recentEntriesExpanded = !recentEntriesExpanded }) {
+                                        Text(if (recentEntriesExpanded) "Zwiń" else "Pokaż więcej (${displayEntries.size})", maxLines = 1, softWrap = false)
+                                    }
                                 }
-                            }
-                        }
+                            },
+                        )
                         Spacer(Modifier.height(TendSpace.small))
                         if (displayEntries.isEmpty()) {
                             Text("Brak wpisów.", color = Muted, fontSize = 13.sp)
@@ -556,9 +557,9 @@ internal fun TendHomeScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Column {
+                                    Column(Modifier.weight(1f)) {
                                         val categoryNameForEntry = categories.firstOrNull { it.id == entry.categoryId }?.name ?: "Bez kategorii"
-                                        Text(if (entry.type == "income") "Przychód" else categoryNameForEntry, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                        Text(if (entry.type == "income") "Przychód" else categoryNameForEntry, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         Text(formatEntryDate(entry.occurredAtEpochMillis), color = Muted, fontSize = 11.sp)
                                     }
                                     Text("${if (entry.type == "income") "+" else "−"} ${formatMoney(entry.amountCents)}", color = if (entry.type == "income") Forest else Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
@@ -569,19 +570,23 @@ internal fun TendHomeScreen(
                     }
                     else -> {
                         Spacer(Modifier.height(TendSpace.small))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TendSpace.small)) {
-                                Text("Plan miesiąca", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                        TendSectionHeader(
+                            title = "Plan miesiąca",
+                            badge = {
                                 if (!canEditTabPlan) {
                                     TendBadge("Tylko podgląd", color = Forest, containerColor = Sage)
                                 } else if (isFutureTabPlan) {
                                     TendBadge("Z wyprzedzeniem", color = Forest, containerColor = Sage)
                                 }
-                            }
-                            if (canEditTabPlan) {
-                                TextButton(onClick = { showPlanOptions = true }) { Text("Opcje planu") }
-                            }
-                        }
+                            },
+                            action = {
+                                if (canEditTabPlan) {
+                                    TextButton(onClick = { showPlanOptions = true }) {
+                                        Text("Opcje planu", maxLines = 1, softWrap = false)
+                                    }
+                                }
+                            },
+                        )
                         if (canEditTabPlan && !isFutureTabPlan && !notificationsEnabled) {
                             TextButton(onClick = onEnableNotifications) {
                                 Text("Włącz powiadomienia o limitach")
@@ -635,10 +640,12 @@ internal fun TendHomeScreen(
                         }
 
                         Spacer(Modifier.height(TendSpace.xlarge))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text("Limity kategorii", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-                            if (canEditTabPlan) TextButton(onClick = { showAddCategory = true }) { Text("+ Kategoria") }
-                        }
+                        TendSectionHeader(
+                            title = "Limity kategorii",
+                            action = {
+                                if (canEditTabPlan) TextButton(onClick = { showAddCategory = true }) { Text("+ Kategoria", maxLines = 1, softWrap = false) }
+                            },
+                        )
                         Spacer(Modifier.height(TendSpace.small))
                         if (categories.isEmpty()) {
                             Text("Brak kategorii.", color = Muted, fontSize = 14.sp)

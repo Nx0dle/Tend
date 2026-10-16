@@ -46,6 +46,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -163,15 +164,15 @@ internal fun RecurringBillsSection(
     onApproveReminder: (BillReminderOccurrence) -> Unit,
     onSkipReminder: (BillReminderOccurrence) -> Unit,
 ) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TendSpace.small)) {
-            Text("Rachunki cykliczne", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+    TendSectionHeader(
+        title = "Rachunki cykliczne",
+        badge = {
             if (pendingReminders.isNotEmpty()) {
                 TendBadge("${pendingReminders.size} do zatwierdzenia", color = Forest, containerColor = Sage)
             }
-        }
-        TextButton(onClick = onAddBill) { Text("+ Dodaj") }
-    }
+        },
+        action = { TextButton(onClick = onAddBill) { Text("+ Dodaj", maxLines = 1, softWrap = false) } },
+    )
     Spacer(Modifier.height(TendSpace.small))
 
     if (pendingReminders.isNotEmpty()) {
@@ -183,7 +184,7 @@ internal fun RecurringBillsSection(
             ) {
                 Column(Modifier.padding(TendSpace.large)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text(reminder.name, color = Ink, fontWeight = FontWeight.SemiBold)
+                        Text(reminder.name, modifier = Modifier.weight(1f), color = Ink, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         TendBadge("Wymaga zgody", color = Forest, containerColor = Color.White)
                     }
                     val categoryName = categories.firstOrNull { it.id == reminder.categoryId }?.name
@@ -211,7 +212,7 @@ internal fun RecurringBillsSection(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(bill.name, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    Text(bill.name, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("${formatMoney(bill.amountCents)} · co miesiąc, dzień ${bill.dayOfMonth}", color = Muted, fontSize = 12.sp)
                 }
                 TextButton(onClick = { onEditBill(bill) }) { Text("Edytuj") }
@@ -496,7 +497,7 @@ private fun CategoryMenuField(label: String, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(label, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(label, modifier = Modifier.weight(1f), color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("⌄", color = Forest, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
         }
     }
