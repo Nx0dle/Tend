@@ -25,15 +25,19 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -48,8 +52,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -81,10 +88,13 @@ internal fun TendHomeScreen(
     onAddCategory: (String) -> Unit,
     onSetCategoryBudget: (String, Long) -> Unit,
     onSetMonthlyBudget: (Long) -> Unit,
+    onClearMonthlyBudget: () -> Unit,
     onCopyPreviousPlan: () -> Unit,
     copyPlanMessage: String?,
     carryoverCents: Long,
     currentCarryoverCents: Long,
+    carryoverEnabled: Boolean,
+    onSetCarryoverEnabled: (Boolean) -> Unit,
     onRenameCategory: (ExpenseCategory, String) -> Unit,
     onDeleteCategory: (ExpenseCategory) -> Unit,
     onUpdateEntry: (LedgerEntry, Long, String?) -> Unit,
@@ -118,7 +128,30 @@ internal fun TendHomeScreen(
     var categoryName by remember { mutableStateOf("") }
     var budgetAmount by remember { mutableStateOf("") }
     var showMonthlyBudgetDialog by remember { mutableStateOf(false) }
-    val displayMonth = if (selectedTab == 0) YearMonth.now() else selectedMonth
+    var showClearMonthlyBudgetConfirmation by remember { mutableStateOf(false) }
+    var showPlanOptions by remember { mutableStateOf(false) }
+    var recentEntriesExpanded by remember { mutableStateOf(false) }
+    var calendarMonth by remember { mutableStateOf(YearMonth.now()) }
+    var budgetMonth by remember { mutableStateOf(selectedMonth) }
+    val currentMonth = YearMonth.now()
+    val displayMonth = when (selectedTab) {
+        0 -> currentMonth
+        1 -> calendarMonth
+        else -> budgetMonth
+    }
+    val changeDisplayedMonth: (YearMonth) -> Unit = { month ->
+        if (selectedTab == 1) calendarMonth = month
+        if (selectedTab == 2) budgetMonth = month
+        onMonthChange(month)
+    }
+    LaunchedEffect(selectedTab) {
+        val targetMonth = when (selectedTab) {
+            1 -> calendarMonth
+            2 -> budgetMonth
+            else -> null
+        }
+        if (targetMonth != null && targetMonth != selectedMonth) onMonthChange(targetMonth)
+    }
     val displayEntries = if (selectedTab == 0) currentEntries else entries
     val displayBudgets = if (selectedTab == 0) currentBudgets else budgets
     val displayMonthlyBudget = if (selectedTab == 0) currentMonthlyBudget else monthlyBudget
@@ -153,24 +186,26 @@ internal fun TendHomeScreen(
             .imePadding(),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 2.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = TendSpace.xlarge).height(44.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                Box(Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(Forest), contentAlignment = Alignment.Center) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TendSpace.small)) {
+                Box(Modifier.size(28.dp).clip(RoundedCornerShape(TendRadius.small)).background(Forest), contentAlignment = Alignment.Center) {
                     Text("t", color = Sage, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 }
                 Text("TEND", color = Ink, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)
             }
-            if (selectedTab != 0) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MonthArrow("‹", "Poprzedni miesiąc") { onMonthChange(selectedMonth.minusMonths(1)) }
-                MonthArrow("›", "Następny miesiąc") { onMonthChange(selectedMonth.plusMonths(1)) }
-            }
+            if (selectedTab != 0) Row(horizontalArrangement = Arrangement.spacedBy(TendSpace.small)) {
+                MonthArrow("‹", "Poprzedni miesiąc") { changeDisplayedMonth(displayMonth.minusMonths(1)) }
+                MonthArrow("›", "Następny miesiąc") {
+                    changeDisplayedMonth(displayMonth.plusMonths(1))
+                }
+            } else Spacer(Modifier.width(96.dp).height(44.dp))
         }
         Text(
             monthLabel,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 6.dp),
+            modifier = Modifier.fillMaxWidth().height(48.dp).padding(horizontal = TendSpace.xlarge, vertical = TendSpace.xsmall),
             color = Ink,
             fontSize = 25.sp,
             fontWeight = FontWeight.SemiBold,
@@ -200,298 +235,476 @@ internal fun TendHomeScreen(
                 },
             transitionSpec = {
                 val direction = if (targetState > initialState) 1 else -1
-                (slideInHorizontally(tween(220)) { it / 5 * direction } + fadeIn(tween(180))) togetherWith
-                    (slideOutHorizontally(tween(220)) { -it / 5 * direction } + fadeOut(tween(120)))
+                (slideInHorizontally(tween(TendMotion.standard)) { it / 5 * direction } + fadeIn(tween(TendMotion.standard))) togetherWith
+                    (slideOutHorizontally(tween(TendMotion.standard)) { -it / 5 * direction } + fadeOut(tween(TendMotion.quick)))
             },
             label = "main-tab-content",
         ) { tab ->
+            val tabMonth = when (tab) {
+                0 -> currentMonth
+                1 -> calendarMonth
+                else -> budgetMonth
+            }
+            val canEditTabPlan = !tabMonth.isBefore(currentMonth)
+            val isFutureTabPlan = tabMonth.isAfter(currentMonth)
             Column(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-            .padding(horizontal = 22.dp, vertical = 12.dp),
+                    .padding(horizontal = TendSpace.xlarge, vertical = TendSpace.medium),
             ) {
-            if (tab == 1) {
-                Spacer(Modifier.height(14.dp))
-                CalendarContent(entries = displayEntries, categories = categories, month = selectedMonth, onEntryClick = { editingEntry = it })
-            } else {
-        if (tab == 0 || (tab == 1 && selectedMonth == YearMonth.now())) {
-        Spacer(Modifier.height(22.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        ) {
-            Column(Modifier.padding(20.dp)) {
-                Text("SZYBKIE DODAWANIE", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    EntryModeChoice("Wydatek", selected = !isIncome) { isIncome = false }
-                    EntryModeChoice("Przychód", selected = isIncome) { isIncome = true }
-                }
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { value ->
-                        amount = value.filter { it.isDigit() || it == ',' || it == '.' }
-                        amountError = false
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("0,00", fontSize = 32.sp, color = Color(0xFFABB3AD)) },
-                    suffix = { Text("zł", color = Muted, fontSize = 16.sp) },
-                    colors = tendFieldColors(),
-                    singleLine = true,
-                    shape = RoundedCornerShape(18.dp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    isError = amountError,
-                    supportingText = if (amountError) ({ Text("Wpisz kwotę większą od zera") }) else null,
-                )
-                Spacer(Modifier.height(12.dp))
-                if (!isIncome) Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(color = Sage, shape = CircleShape, onClick = { showCategoryPicker = true }) {
-                        val selectedCategory = categories.firstOrNull { it.id == selectedCategoryId }
-                        Text(
-                            selectedCategory?.name ?: "Bez kategorii  ▾",
-                            color = Forest,
-                            fontSize = 13.sp,
-                            modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
-                        )
+                when (tab) {
+                    1 -> {
+                        Spacer(Modifier.height(TendSpace.large))
+                        CalendarContent(entries = displayEntries, categories = categories, month = tabMonth, onEntryClick = { editingEntry = it })
                     }
-                }
-                Spacer(Modifier.height(14.dp))
-                Button(
-                    onClick = {
-                        val cents = parseAmountCents(amount)
-                        if (cents != null && cents > 0L) {
-                            onAddEntry(cents, if (isIncome) "income" else "expense", if (isIncome) null else selectedCategoryId)
-                            amount = ""
-                            amountError = false
-                            entrySaved = true
+                    0 -> {
+                        Spacer(Modifier.height(TendSpace.small))
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(TendRadius.card),
+                            colors = CardDefaults.cardColors(containerColor = DeepForest),
+                        ) {
+                            Column(Modifier.padding(TendSpace.xlarge)) {
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        "WYDATKI W MIESIĄCU",
+                                        color = Color(0xFFC5D1C5),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.4.sp,
+                                    )
+                                    Box(Modifier.size(8.dp).clip(CircleShape).background(Sage))
+                                }
+                                Spacer(Modifier.height(TendSpace.xsmall))
+                                Text(
+                                    formatMoney(spentCents),
+                                    color = Color.White,
+                                    fontSize = 38.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    letterSpacing = (-1.2).sp,
+                                )
+                                Spacer(Modifier.height(TendSpace.large))
+                                val categoryShare = allocatedCents.coerceAtMost(availableCents.coerceAtLeast(0L))
+                                val reserveShare = reserveCents.coerceAtLeast(0L)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(TendRadius.small)),
+                                ) {
+                                    if (categoryShare > 0L) {
+                                        val assignmentColor = if (reserveCents < 0L) Color(0xFFE58669) else Sage
+                                        Box(Modifier.weight(categoryShare.toFloat()).fillMaxHeight().background(assignmentColor))
+                                    }
+                                    if (reserveShare > 0L) {
+                                        Box(Modifier.weight(reserveShare.toFloat()).fillMaxHeight().background(Color(0xFFD38B61)))
+                                    }
+                                    if (categoryShare == 0L && reserveShare == 0L) {
+                                        Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.18f)))
+                                    }
+                                }
+                                Spacer(Modifier.height(TendSpace.large))
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(TendSpace.small)) {
+                                    SummaryMetric("PULA", if (hasBudgetPool) formatMoney(availableCents) else "Nieustawiona", Modifier.weight(1f))
+                                    SummaryMetric("LIMITY", formatMoney(allocatedCents), Modifier.weight(1f))
+                                    SummaryMetric("REZERWA", if (!hasBudgetPool && allocatedCents == 0L) "—" else formatMoney(reserveCents), Modifier.weight(1f))
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(TendSpace.medium))
+
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(TendRadius.card),
+                            color = Color.White,
+                            border = BorderStroke(1.dp, Line),
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(horizontal = TendSpace.xlarge, vertical = TendSpace.large),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TendSpace.small)) {
+                                    Text("DZISIAJ", color = Forest, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp)
+                                    val expenseCountLabel = when {
+                                        todayExpenses.size == 1 -> "1 wydatek"
+                                        todayExpenses.size % 100 in 12..14 -> "${todayExpenses.size} wydatków"
+                                        todayExpenses.size % 10 in 2..4 -> "${todayExpenses.size} wydatki"
+                                        else -> "${todayExpenses.size} wydatków"
+                                    }
+                                    TendBadge(expenseCountLabel, color = Forest, containerColor = Sage)
+                                }
+                                Text(formatMoney(todaySpentCents), color = Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+
+                        Spacer(Modifier.height(TendSpace.medium))
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(TendRadius.card),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            border = BorderStroke(1.dp, Line),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = TendSpace.large, vertical = TendSpace.medium),
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = Porcelain,
+                                        border = BorderStroke(1.dp, Line.copy(alpha = 0.6f)),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(TendSpace.xsmall),
+                                            horizontalArrangement = Arrangement.spacedBy(TendSpace.xsmall),
+                                        ) {
+                                            EntryModeChoice("Wydatek", selected = !isIncome) { isIncome = false }
+                                            EntryModeChoice("Przychód", selected = isIncome) { isIncome = true }
+                                        }
+                                    }
+
+                                    if (!isIncome) {
+                                        val selectedCategory = categories.firstOrNull { it.id == selectedCategoryId }
+                                        Surface(
+                                            modifier = Modifier
+                                                .clip(CircleShape)
+                                                .clickable { showCategoryPicker = true },
+                                            shape = CircleShape,
+                                            color = Sage,
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .height(TendSize.control)
+                                                    .padding(horizontal = TendSpace.medium),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            ) {
+                                                if (selectedCategoryId != null) {
+                                                    Box(
+                                                        Modifier
+                                                            .size(7.dp)
+                                                            .clip(CircleShape)
+                                                            .background(categoryColor(selectedCategoryId)),
+                                                    )
+                                                }
+                                                Text(
+                                                    text = selectedCategory?.name ?: "Bez kategorii",
+                                                    color = Forest,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                )
+                                                Text("▾", color = Forest, fontSize = 11.sp)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Spacer(Modifier.height(TendSpace.medium))
+
+                                val amountTextStyle = LocalTextStyle.current.copy(
+                                    color = Ink,
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    letterSpacing = (-0.5).sp,
+                                    lineHeight = 30.sp,
+                                    platformStyle = PlatformTextStyle(includeFontPadding = false),
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(TendSpace.medium),
+                                ) {
+                                    BasicTextField(
+                                        value = amount,
+                                        onValueChange = { value ->
+                                            amount = value.filter { it.isDigit() || it == ',' || it == '.' }
+                                            amountError = false
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        textStyle = amountTextStyle,
+                                        singleLine = true,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                                        keyboardActions = KeyboardActions(onDone = {
+                                            val cents = parseAmountCents(amount)
+                                            if (cents != null && cents > 0L) {
+                                                onAddEntry(cents, if (isIncome) "income" else "expense", if (isIncome) null else selectedCategoryId)
+                                                amount = ""
+                                                amountError = false
+                                                entrySaved = true
+                                            } else {
+                                                amountError = true
+                                            }
+                                        }),
+                                        cursorBrush = SolidColor(Forest),
+                                        decorationBox = { innerTextField ->
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Box(Modifier.weight(1f, fill = false)) {
+                                                    if (amount.isEmpty()) {
+                                                        Text("0,00", style = amountTextStyle.copy(color = Color(0xFFABB3AD)))
+                                                    }
+                                                    innerTextField()
+                                                }
+                                                Spacer(Modifier.width(6.dp))
+                                                Text("zł", color = Muted, fontSize = 16.sp, fontWeight = FontWeight.Normal)
+                                            }
+                                        },
+                                    )
+
+                                    Surface(
+                                        onClick = {
+                                            val cents = parseAmountCents(amount)
+                                            if (cents != null && cents > 0L) {
+                                                onAddEntry(cents, if (isIncome) "income" else "expense", if (isIncome) null else selectedCategoryId)
+                                                amount = ""
+                                                amountError = false
+                                                entrySaved = true
+                                            } else {
+                                                amountError = true
+                                            }
+                                        },
+                                        modifier = Modifier.size(44.dp),
+                                        shape = CircleShape,
+                                        color = animateColorAsState(
+                                            if (entrySaved) Forest else DeepForest,
+                                            animationSpec = tween(180),
+                                            label = "entry-button-color",
+                                        ).value,
+                                        shadowElevation = 2.dp,
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            AnimatedContent(
+                                                targetState = entrySaved,
+                                                transitionSpec = { fadeIn(tween(140)) togetherWith fadeOut(tween(100)) },
+                                                label = "entry-icon-feedback",
+                                            ) { saved ->
+                                                if (saved) {
+                                                    Text("✓", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                                                } else {
+                                                    Text("+", color = Gold, fontSize = 26.sp, fontWeight = FontWeight.Medium)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (amountError) {
+                                    Spacer(Modifier.height(4.dp))
+                                    Text("Wpisz kwotę większą od zera", color = Danger, fontSize = 11.sp)
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(TendSpace.xlarge))
+
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Kategorie", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        Spacer(Modifier.height(TendSpace.small))
+                        if (categories.isEmpty()) {
+                            Text("Brak kategorii.", color = Muted, fontSize = 14.sp)
                         } else {
-                            amountError = true
+                            categories.forEach { category ->
+                                val spent = displayEntries.filter { it.categoryId == category.id && it.type == "expense" }.sumOf { it.amountCents }
+                                val limit = displayBudgets.firstOrNull { it.categoryId == category.id }?.amountCents ?: 0L
+                                CategoryProgressRow(
+                                    category = category,
+                                    spentCents = spent,
+                                    budgetCents = limit,
+                                )
+                            }
                         }
-                    },
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(
-                    containerColor = animateColorAsState(
-                            if (entrySaved) Forest else Sage,
-                            animationSpec = tween(180),
-                            label = "entry-button-color",
-                        ).value,
-                    ),
-                ) {
-                    AnimatedContent(
-                        targetState = entrySaved,
-                        transitionSpec = { fadeIn(tween(140)) togetherWith fadeOut(tween(100)) },
-                        label = "entry-submit-feedback",
-                    ) { saved ->
-                        Text(
-                            if (saved) "Dodano" else if (isIncome) "Dodaj przychód" else "Dodaj wydatek",
-                            color = if (saved) Color.White else Ink,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                }
-            }
-        }
-        }
 
-        if (tab == 0) {
-            Surface(
-                modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
-                shape = RoundedCornerShape(18.dp),
-                color = Color.White,
-                border = BorderStroke(1.dp, Line),
-            ) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 17.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column {
-                        Text("DZISIAJ", color = Forest, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp)
-                        Spacer(Modifier.height(3.dp))
-                        val expenseCountLabel = when {
-                            todayExpenses.size == 1 -> "wydatek"
-                            todayExpenses.size % 100 in 12..14 -> "wydatków"
-                            todayExpenses.size % 10 in 2..4 -> "wydatki"
-                            else -> "wydatków"
+                        Spacer(Modifier.height(TendSpace.xlarge))
+
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TendSpace.small)) {
+                                Text("Ostatnie wpisy", color = Ink, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                                if (displayEntries.isNotEmpty()) {
+                                    TendBadge("${displayEntries.size}", color = Muted, containerColor = Line.copy(alpha = 0.5f))
+                                }
+                            }
+                            if (displayEntries.size > 5) {
+                                TextButton(onClick = { recentEntriesExpanded = !recentEntriesExpanded }) {
+                                    Text(if (recentEntriesExpanded) "Zwiń" else "Pokaż więcej (${displayEntries.size})")
+                                }
+                            }
                         }
-                        Text("${todayExpenses.size} $expenseCountLabel", color = Muted, fontSize = 12.sp)
+                        Spacer(Modifier.height(TendSpace.small))
+                        if (displayEntries.isEmpty()) {
+                            Text("Brak wpisów.", color = Muted, fontSize = 13.sp)
+                        } else {
+                            val visibleEntries = if (recentEntriesExpanded) displayEntries else displayEntries.take(5)
+                            visibleEntries.forEach { entry ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = TendSpace.small).clickable { editingEntry = entry },
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Column {
+                                        val categoryNameForEntry = categories.firstOrNull { it.id == entry.categoryId }?.name ?: "Bez kategorii"
+                                        Text(if (entry.type == "income") "Przychód" else categoryNameForEntry, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                        Text(formatEntryDate(entry.occurredAtEpochMillis), color = Muted, fontSize = 11.sp)
+                                    }
+                                    Text("${if (entry.type == "income") "+" else "−"} ${formatMoney(entry.amountCents)}", color = if (entry.type == "income") Forest else Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(TendSpace.xxlarge))
                     }
-                    Text(formatMoney(todaySpentCents), color = Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                    else -> {
+                        Spacer(Modifier.height(TendSpace.small))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TendSpace.small)) {
+                                Text("Plan miesiąca", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                                if (!canEditTabPlan) {
+                                    TendBadge("Tylko podgląd", color = Forest, containerColor = Sage)
+                                } else if (isFutureTabPlan) {
+                                    TendBadge("Z wyprzedzeniem", color = Forest, containerColor = Sage)
+                                }
+                            }
+                            if (canEditTabPlan) {
+                                TextButton(onClick = { showPlanOptions = true }) { Text("Opcje planu") }
+                            }
+                        }
+                        if (canEditTabPlan && !isFutureTabPlan && !notificationsEnabled) {
+                            TextButton(onClick = onEnableNotifications) {
+                                Text("Włącz powiadomienia o limitach")
+                            }
+                        }
+                        copyPlanMessage?.let { Text(it, color = Muted, fontSize = 12.sp) }
+                        Spacer(Modifier.height(TendSpace.medium))
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(TendRadius.card),
+                            colors = CardDefaults.cardColors(containerColor = DeepForest),
+                        ) {
+                            Column(Modifier.padding(TendSpace.xlarge)) {
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        "DO DYSPOZYCJI",
+                                        color = Color(0xFFC5D1C5),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.4.sp,
+                                    )
+                                    Box(Modifier.size(8.dp).clip(CircleShape).background(Sage))
+                                }
+                                Spacer(Modifier.height(TendSpace.xsmall))
+                                val headlineAmount = if (!hasBudgetPool) "Nieustawiona" else formatMoney(availableCents)
+                                Text(headlineAmount, color = Color.White, fontSize = if (headlineAmount == "Nieustawiona") 28.sp else 38.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.2).sp)
+                                Spacer(Modifier.height(TendSpace.large))
+                                val categoryShare = allocatedCents.coerceAtMost(availableCents.coerceAtLeast(0L))
+                                val reserveShare = reserveCents.coerceAtLeast(0L)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(TendRadius.small)),
+                                ) {
+                                    if (categoryShare > 0L) {
+                                        val assignmentColor = if (reserveCents < 0L) Color(0xFFE58669) else Sage
+                                        Box(Modifier.weight(categoryShare.toFloat()).fillMaxHeight().background(assignmentColor))
+                                    }
+                                    if (reserveShare > 0L) {
+                                        Box(Modifier.weight(reserveShare.toFloat()).fillMaxHeight().background(Color(0xFFD38B61)))
+                                    }
+                                    if (categoryShare == 0L && reserveShare == 0L) {
+                                        Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.18f)))
+                                    }
+                                }
+                                Spacer(Modifier.height(TendSpace.large))
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(TendSpace.small)) {
+                                    SummaryMetric("LIMITY", formatMoney(allocatedCents), Modifier.weight(1f))
+                                    SummaryMetric("REZERWA", if (!hasBudgetPool && allocatedCents == 0L) "—" else formatMoney(reserveCents), Modifier.weight(1f))
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(TendSpace.xlarge))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Limity kategorii", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                            if (canEditTabPlan) TextButton(onClick = { showAddCategory = true }) { Text("+ Kategoria") }
+                        }
+                        Spacer(Modifier.height(TendSpace.small))
+                        if (categories.isEmpty()) {
+                            Text("Brak kategorii.", color = Muted, fontSize = 14.sp)
+                        } else {
+                            categories.forEach { category ->
+                                val spent = displayEntries.filter { it.categoryId == category.id && it.type == "expense" }.sumOf { it.amountCents }
+                                val limit = displayBudgets.firstOrNull { it.categoryId == category.id }?.amountCents ?: 0L
+                                if (!canEditTabPlan) {
+                                    CategoryProgressRow(
+                                        category = category,
+                                        spentCents = spent,
+                                        budgetCents = limit,
+                                    )
+                                } else {
+                                    CategoryBudgetRow(
+                                        category = category,
+                                        spentCents = spent,
+                                        budgetCents = limit,
+                                        onEditBudget = {
+                                            budgetCategory = category
+                                            budgetAmount = if (limit == 0L) "" else String.format(Locale("pl", "PL"), "%.2f", limit / 100.0)
+                                        },
+                                        onManageCategory = { editingCategory = category },
+                                        isFuturePlan = isFutureTabPlan,
+                                    )
+                                }
+                            }
+                        }
+
+                        if (tabMonth == currentMonth) {
+                            Spacer(Modifier.height(TendSpace.xxlarge))
+                            RecurringBillsSection(
+                                bills = recurringBills,
+                                pendingReminders = pendingBillReminders,
+                                categories = categories,
+                                onAddBill = {
+                                    editingRecurringBill = null
+                                    showRecurringBillEditor = true
+                                },
+                                onEditBill = { bill ->
+                                    editingRecurringBill = bill
+                                    showRecurringBillEditor = true
+                                },
+                                onDeleteBill = { deletingRecurringBill = it },
+                                onApproveReminder = onApproveBillReminder,
+                                onSkipReminder = onSkipBillReminder,
+                            )
+                        }
+                        Spacer(Modifier.height(TendSpace.xxlarge))
+                    }
                 }
             }
-        }
-
-        Spacer(Modifier.height(24.dp))
-        Text(if (tab == 2) "Plan miesiąca" else "Twój miesiąc", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-        if (tab == 2) {
-            if (selectedMonth == YearMonth.now()) {
-                if (!notificationsEnabled) {
-                    TextButton(onClick = onEnableNotifications) {
-                        Text("Włącz powiadomienia o limitach")
-                    }
-                }
-                TextButton(onClick = { showMonthlyBudgetDialog = true }) {
-                    Text(if (displayMonthlyBudget == null) "Ustaw pulę miesiąca" else "Edytuj pulę miesiąca")
-                }
-                TextButton(
-                    onClick = onCopyPreviousPlan,
-                    enabled = displayMonthlyBudget == null && displayBudgets.isEmpty(),
-                ) { Text("Kopiuj poprzedni podział") }
-                copyPlanMessage?.let { Text(it, color = Muted, fontSize = 12.sp) }
-            } else {
-                Text("Podgląd historycznego planu", color = Muted, fontSize = 13.sp)
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = DeepForest),
-        ) {
-            Column(Modifier.padding(20.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        if (tab == 2) "PULA MIESIĄCA" else "WYDATKI W MIESIĄCU",
-                        color = Color(0xFFC5D1C5),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.4.sp,
-                    )
-                    Box(Modifier.size(8.dp).clip(CircleShape).background(Sage))
-                }
-                Spacer(Modifier.height(4.dp))
-                val headlineAmount = if (tab == 2 && !hasBudgetPool) "Nieustawiona" else formatMoney(if (tab == 2) availableCents else spentCents)
-                Text(headlineAmount, color = Color.White, fontSize = if (headlineAmount == "Nieustawiona") 28.sp else 38.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.2).sp)
-                Spacer(Modifier.height(16.dp))
-                val categoryShare = allocatedCents.coerceAtMost(availableCents.coerceAtLeast(0L))
-                val reserveShare = reserveCents.coerceAtLeast(0L)
-                Row(
-                    modifier = Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(8.dp)),
-                ) {
-                    if (categoryShare > 0L) {
-                        val assignmentColor = if (reserveCents < 0L) Color(0xFFE58669) else Sage
-                        Box(Modifier.weight(categoryShare.toFloat()).fillMaxHeight().background(assignmentColor))
-                    }
-                    if (reserveShare > 0L) {
-                        Box(Modifier.weight(reserveShare.toFloat()).fillMaxHeight().background(Color(0xFFD38B61)))
-                    }
-                    if (categoryShare == 0L && reserveShare == 0L) {
-                        Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.18f)))
-                    }
-                }
-                Spacer(Modifier.height(14.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SummaryMetric("PULA", if (hasBudgetPool) formatMoney(availableCents) else "Nieustawiona", Modifier.weight(1f))
-                    SummaryMetric("LIMITY", formatMoney(allocatedCents), Modifier.weight(1f))
-                    SummaryMetric("REZERWA", if (!hasBudgetPool && allocatedCents == 0L) "—" else formatMoney(reserveCents), Modifier.weight(1f))
-                }
-            }
-        }
-
-        if (tab == 0) {
-            Spacer(Modifier.height(22.dp))
-            ExpenseCategorySummary(entries = displayEntries, categories = categories)
-        }
-
-        Spacer(Modifier.height(24.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(if (tab == 2) "Limity kategorii" else "Kategorie", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-            if (tab == 2 && selectedMonth == YearMonth.now()) TextButton(onClick = { showAddCategory = true }) { Text("+ Kategoria") }
-        }
-        Spacer(Modifier.height(10.dp))
-        if (categories.isEmpty()) {
-            Text("Brak kategorii.", color = Muted, fontSize = 14.sp)
-        } else {
-            categories.forEach { category ->
-                val spent = displayEntries.filter { it.categoryId == category.id && it.type == "expense" }.sumOf { it.amountCents }
-                val limit = displayBudgets.firstOrNull { it.categoryId == category.id }?.amountCents ?: 0L
-                if (tab == 0 || selectedMonth != YearMonth.now()) {
-                    CategoryProgressRow(
-                        category = category,
-                        spentCents = spent,
-                        budgetCents = limit,
-                    )
-                } else {
-                    CategoryBudgetRow(
-                        category = category,
-                        spentCents = spent,
-                        budgetCents = limit,
-                        onEditBudget = {
-                            budgetCategory = category
-                            budgetAmount = if (limit == 0L) "" else String.format(Locale("pl", "PL"), "%.2f", limit / 100.0)
-                        },
-                        onManageCategory = { editingCategory = category },
-                    )
-                }
-            }
-        }
-
-        if (tab == 2 && selectedMonth == YearMonth.now()) {
-            Spacer(Modifier.height(26.dp))
-            RecurringBillsSection(
-                bills = recurringBills,
-                pendingReminders = pendingBillReminders,
-                categories = categories,
-                onAddBill = {
-                    editingRecurringBill = null
-                    showRecurringBillEditor = true
-                },
-                onEditBill = { bill ->
-                    editingRecurringBill = bill
-                    showRecurringBillEditor = true
-                },
-                onDeleteBill = { deletingRecurringBill = it },
-                onApproveReminder = onApproveBillReminder,
-                onSkipReminder = onSkipBillReminder,
-            )
-        }
-
-        if (tab == 0) {
-        Spacer(Modifier.height(20.dp))
-        Text("Ostatnie wpisy", color = Ink, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
-        if (displayEntries.isEmpty()) {
-            Text("Brak wpisów.", color = Muted, fontSize = 13.sp)
-        } else {
-            displayEntries.take(5).forEach { entry ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 9.dp).clickable { editingEntry = entry },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column {
-                        val categoryNameForEntry = categories.firstOrNull { it.id == entry.categoryId }?.name ?: "Bez kategorii"
-                        Text(if (entry.type == "income") "Przychód → Rezerwa" else categoryNameForEntry, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                        Text(formatEntryDate(entry.occurredAtEpochMillis), color = Muted, fontSize = 11.sp)
-                    }
-                    Text("${if (entry.type == "income") "+" else "−"} ${formatMoney(entry.amountCents)}", color = if (entry.type == "income") Forest else Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
-        Spacer(Modifier.height(26.dp))
-        }
-        }
-        }
         }
 
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 10.dp),
-            shape = RoundedCornerShape(26.dp),
+                .padding(horizontal = TendSpace.xlarge, vertical = TendSpace.small),
+            shape = CircleShape,
             color = DeepForest,
             border = BorderStroke(1.dp, DeepForest),
             shadowElevation = 8.dp,
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth().padding(5.dp),
+                horizontalArrangement = Arrangement.spacedBy(TendSpace.small),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 BottomNavItem("Start", selectedTab == 0, Modifier.weight(1f)) { selectedTab = 0 }
@@ -506,7 +719,7 @@ internal fun TendHomeScreen(
             onDismissRequest = { showCategoryPicker = false },
             title = { Text("Wybierz kategorię") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(TendSpace.small)) {
                     CategoryChoiceRow(
                         label = "Bez kategorii",
                         selected = selectedCategoryId == null,
@@ -522,12 +735,12 @@ internal fun TendHomeScreen(
                     Surface(
                         onClick = { showCategoryPicker = false; showAddCategory = true },
                         color = DeepForest,
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(TendRadius.control),
                     ) {
                         Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 13.dp),
+                            Modifier.fillMaxWidth().padding(horizontal = TendSpace.large, vertical = TendSpace.medium),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(TendSpace.small),
                         ) {
                             Text("+", color = Gold, fontSize = 21.sp, fontWeight = FontWeight.Medium)
                             Text("Utwórz kategorię", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
@@ -548,7 +761,7 @@ internal fun TendHomeScreen(
                     value = categoryName,
                     onValueChange = { categoryName = it },
                     label = { Text("Nazwa") },
-                    shape = RoundedCornerShape(15.dp),
+                    shape = RoundedCornerShape(TendRadius.control),
                     colors = tendFieldColors(),
                     singleLine = true,
                 )
@@ -575,7 +788,7 @@ internal fun TendHomeScreen(
                     label = { Text("Miesięczny limit") },
                     suffix = { Text("zł") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    shape = RoundedCornerShape(15.dp),
+                    shape = RoundedCornerShape(TendRadius.control),
                     colors = tendFieldColors(),
                     singleLine = true,
                 )
@@ -593,18 +806,33 @@ internal fun TendHomeScreen(
         )
     }
 
+    if (showPlanOptions) {
+        BudgetPlanOptionsDialog(
+            monthLabel = monthLabel,
+            monthlyBudgetCents = displayMonthlyBudget?.plannedCents,
+            carryoverEnabled = carryoverEnabled,
+            carryoverCents = displayCarryover,
+            canCopyPreviousPlan = displayBudgets.isEmpty(),
+            onCarryoverChange = onSetCarryoverEnabled,
+            onEditPool = { showPlanOptions = false; showMonthlyBudgetDialog = true },
+            onRemovePool = { showPlanOptions = false; showClearMonthlyBudgetConfirmation = true },
+            onCopyPreviousPlan = { showPlanOptions = false; onCopyPreviousPlan() },
+            onDismiss = { showPlanOptions = false },
+        )
+    }
+
     if (showMonthlyBudgetDialog) {
         TendDialog(
             onDismissRequest = { showMonthlyBudgetDialog = false },
-            title = { Text("Budżet na ten miesiąc") },
+            title = { Text("Pula · $monthLabel") },
             text = {
                 OutlinedTextField(
                     value = monthlyBudgetAmount,
                     onValueChange = { value -> monthlyBudgetAmount = value.filter { it.isDigit() || it == ',' || it == '.' } },
-                    label = { Text("Kwota do rozdysponowania") },
+                    label = { Text("Kwota") },
                     suffix = { Text("zł") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    shape = RoundedCornerShape(15.dp),
+                    shape = RoundedCornerShape(TendRadius.control),
                     colors = tendFieldColors(),
                     singleLine = true,
                 )
@@ -619,6 +847,27 @@ internal fun TendHomeScreen(
                 }) { Text("Zapisz") }
             },
             dismissButton = { TextButton(onClick = { showMonthlyBudgetDialog = false }) { Text("Anuluj") } },
+        )
+    }
+
+    if (showClearMonthlyBudgetConfirmation) {
+        TendDialog(
+            onDismissRequest = { showClearMonthlyBudgetConfirmation = false },
+            title = { Text("Usunąć pulę?") },
+            text = {
+                Text(
+                    "Limity kategorii dla $monthLabel pozostaną bez zmian.",
+                    color = Muted,
+                    fontSize = 14.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onClearMonthlyBudget()
+                    showClearMonthlyBudgetConfirmation = false
+                }) { Text("Usuń") }
+            },
+            dismissButton = { TextButton(onClick = { showClearMonthlyBudgetConfirmation = false }) { Text("Anuluj") } },
         )
     }
 
@@ -697,7 +946,7 @@ internal fun TendHomeScreen(
         TendDialog(
             onDismissRequest = { deletingRecurringBill = null },
             title = { Text("Usunąć rachunek cykliczny?") },
-            text = { Text("Przyszłe przypomnienia dla „${bill.name}” zostaną wyłączone. Już utworzone wpisy pozostaną w historii.") },
+            text = { Text("Wyłączyć przyszłe przypomnienia dla „${bill.name}”?") },
             confirmButton = {
                 TextButton(onClick = { onDeleteRecurringBill(bill); deletingRecurringBill = null }) { Text("Usuń") }
             },

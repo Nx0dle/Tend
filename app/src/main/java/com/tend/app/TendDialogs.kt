@@ -2,18 +2,23 @@ package com.tend.app
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -23,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -30,6 +36,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,14 +71,14 @@ internal fun EntryEditorDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edytuj wpis") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(TendSpace.small)) {
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { value -> amount = value.filter { it.isDigit() || it == ',' || it == '.' } },
                     label = { Text("Kwota") },
                     suffix = { Text("zł") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    shape = RoundedCornerShape(15.dp),
+                    shape = RoundedCornerShape(TendRadius.control),
                     colors = tendFieldColors(),
                     singleLine = true,
                 )
@@ -81,7 +88,7 @@ internal fun EntryEditorDialog(
                         DropdownMenu(
                             expanded = categoryMenuExpanded,
                             onDismissRequest = { categoryMenuExpanded = false },
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(TendRadius.control),
                             containerColor = Color.White,
                         ) {
                             DropdownMenuItem(
@@ -128,7 +135,7 @@ internal fun CategoryEditorDialog(
                 value = name,
                 onValueChange = { name = it },
                 label = { Text("Nazwa kategorii") },
-                shape = RoundedCornerShape(15.dp),
+                shape = RoundedCornerShape(TendRadius.control),
                 colors = tendFieldColors(),
                 singleLine = true,
             )
@@ -157,22 +164,28 @@ internal fun RecurringBillsSection(
     onSkipReminder: (BillReminderOccurrence) -> Unit,
 ) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text("Rachunki cykliczne", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TendSpace.small)) {
+            Text("Rachunki cykliczne", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            if (pendingReminders.isNotEmpty()) {
+                TendBadge("${pendingReminders.size} do zatwierdzenia", color = Forest, containerColor = Sage)
+            }
+        }
         TextButton(onClick = onAddBill) { Text("+ Dodaj") }
     }
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(TendSpace.small))
 
     if (pendingReminders.isNotEmpty()) {
-        Text("Do zatwierdzenia", color = Forest, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(6.dp))
         pendingReminders.forEach { reminder ->
             Card(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                shape = RoundedCornerShape(18.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = TendSpace.xsmall),
+                shape = RoundedCornerShape(TendRadius.control),
                 colors = CardDefaults.cardColors(containerColor = Sage),
             ) {
-                Column(Modifier.padding(14.dp)) {
-                    Text(reminder.name, color = Ink, fontWeight = FontWeight.SemiBold)
+                Column(Modifier.padding(TendSpace.large)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text(reminder.name, color = Ink, fontWeight = FontWeight.SemiBold)
+                        TendBadge("Wymaga zgody", color = Forest, containerColor = Color.White)
+                    }
                     val categoryName = categories.firstOrNull { it.id == reminder.categoryId }?.name
                     Text(
                         listOfNotNull(formatMoney(reminder.amountCents), formatEntryDate(reminder.dueAtEpochMillis), categoryName).joinToString(" · "),
@@ -186,7 +199,7 @@ internal fun RecurringBillsSection(
                 }
             }
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(TendSpace.medium))
     }
 
     if (bills.isEmpty()) {
@@ -194,7 +207,7 @@ internal fun RecurringBillsSection(
     } else {
         bills.forEach { bill ->
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = TendSpace.small),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
@@ -227,12 +240,12 @@ internal fun RecurringBillEditorDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (bill == null) "Nowy rachunek cykliczny" else "Edytuj rachunek") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(TendSpace.small)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Nazwa rachunku") },
-                    shape = RoundedCornerShape(15.dp),
+                    shape = RoundedCornerShape(TendRadius.control),
                     colors = tendFieldColors(),
                     singleLine = true,
                 )
@@ -242,7 +255,7 @@ internal fun RecurringBillEditorDialog(
                     label = { Text("Kwota") },
                     suffix = { Text("zł") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    shape = RoundedCornerShape(15.dp),
+                    shape = RoundedCornerShape(TendRadius.control),
                     colors = tendFieldColors(),
                     singleLine = true,
                 )
@@ -251,7 +264,7 @@ internal fun RecurringBillEditorDialog(
                     onValueChange = { value -> day = value.filter(Char::isDigit).take(2) },
                     label = { Text("Dzień płatności (1–31)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(15.dp),
+                    shape = RoundedCornerShape(TendRadius.control),
                     colors = tendFieldColors(),
                     singleLine = true,
                 )
@@ -260,7 +273,7 @@ internal fun RecurringBillEditorDialog(
                     DropdownMenu(
                         expanded = categoryMenuExpanded,
                         onDismissRequest = { categoryMenuExpanded = false },
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(TendRadius.control),
                         containerColor = Color.White,
                     ) {
                         DropdownMenuItem(
@@ -309,44 +322,41 @@ internal fun TendDialog(
     Dialog(onDismissRequest = onDismissRequest) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(27.dp),
+            shape = RoundedCornerShape(TendRadius.panel),
             color = Porcelain,
             border = BorderStroke(1.dp, Gold.copy(alpha = 0.48f)),
             shadowElevation = 20.dp,
         ) {
-            Column(Modifier.padding(20.dp)) {
+            Column(Modifier.padding(TendSpace.xlarge)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                        Box(Modifier.size(26.dp).clip(CircleShape).background(DeepForest), contentAlignment = Alignment.Center) {
-                            Text("t", color = Gold, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Text("TEND  /  FINANSE", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Box(modifier = Modifier.weight(1f)) {
+                        CompositionLocalProvider(
+                            LocalTextStyle provides MaterialTheme.typography.titleLarge.copy(
+                                color = Ink,
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = (-0.3).sp,
+                            ),
+                        ) { title() }
                     }
+
+                    Spacer(Modifier.width(TendSpace.medium))
                     Surface(onClick = onDismissRequest, shape = CircleShape, color = Sage) {
                         Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
                             Text("×", color = DeepForest, fontSize = 20.sp, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
-                Spacer(Modifier.height(18.dp))
-                CompositionLocalProvider(
-                    LocalTextStyle provides MaterialTheme.typography.titleLarge.copy(
-                        color = Ink,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.3).sp,
-                    ),
-                ) { title() }
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(TendSpace.large))
                 Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
-                Spacer(Modifier.height(17.dp))
+                Spacer(Modifier.height(TendSpace.large))
                 CompositionLocalProvider(
                     LocalTextStyle provides MaterialTheme.typography.bodyMedium.copy(color = Muted),
                 ) { text() }
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(TendSpace.xlarge))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
@@ -361,17 +371,85 @@ internal fun TendDialog(
 }
 
 @Composable
+internal fun BudgetPlanOptionsDialog(
+    monthLabel: String,
+    monthlyBudgetCents: Long?,
+    carryoverEnabled: Boolean,
+    carryoverCents: Long,
+    canCopyPreviousPlan: Boolean,
+    onCarryoverChange: (Boolean) -> Unit,
+    onEditPool: () -> Unit,
+    onRemovePool: () -> Unit,
+    onCopyPreviousPlan: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    TendDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Opcje planu") },
+        text = {
+            Column(
+                Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(TendSpace.medium),
+            ) {
+                Text(monthLabel, color = Forest, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Surface(
+                    color = Color.White,
+                    shape = RoundedCornerShape(TendRadius.control),
+                    border = BorderStroke(1.dp, Line),
+                ) {
+                    Column(Modifier.padding(TendSpace.large), verticalArrangement = Arrangement.spacedBy(TendSpace.xsmall)) {
+                        Text(if (monthlyBudgetCents == null) "Pula miesiąca" else "Pula · ${formatMoney(monthlyBudgetCents)}", color = Ink, fontWeight = FontWeight.SemiBold)
+                        Row(horizontalArrangement = Arrangement.spacedBy(TendSpace.small)) {
+                            TextButton(onClick = onEditPool) { Text(if (monthlyBudgetCents == null) "Ustaw pulę" else "Zmień") }
+                            if (monthlyBudgetCents != null) TextButton(onClick = onRemovePool) { Text("Usuń") }
+                        }
+                    }
+                }
+                Surface(
+                    color = if (carryoverEnabled) Sage.copy(alpha = .52f) else Color.White,
+                    shape = RoundedCornerShape(TendRadius.control),
+                    border = BorderStroke(1.dp, if (carryoverEnabled) Forest.copy(alpha = .28f) else Line),
+                ) {
+                    Column(Modifier.padding(TendSpace.large)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Przenoszenie salda", color = Ink, fontWeight = FontWeight.SemiBold)
+                                Text(if (carryoverEnabled) "Włączone · ${formatMoney(carryoverCents)}" else "Wyłączone", color = Muted, fontSize = 12.sp)
+                            }
+                            Switch(checked = carryoverEnabled, onCheckedChange = onCarryoverChange)
+                        }
+                    }
+                }
+                Surface(
+                    onClick = onCopyPreviousPlan,
+                    enabled = canCopyPreviousPlan,
+                    color = Color.White,
+                    shape = RoundedCornerShape(TendRadius.control),
+                    border = BorderStroke(1.dp, Line),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(TendSpace.large)) {
+                        Text("Skopiuj limity kategorii", color = if (canCopyPreviousPlan) Ink else Muted, fontWeight = FontWeight.SemiBold)
+                        Text(if (canCopyPreviousPlan) "Z poprzedniego miesiąca" else "Limity są już ustawione", color = Muted, fontSize = 12.sp)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Gotowe") } },
+    )
+}
+
+@Composable
 internal fun CategoryChoiceRow(label: String, selected: Boolean, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         color = if (selected) Sage else Color.White,
-        shape = RoundedCornerShape(15.dp),
+        shape = RoundedCornerShape(TendRadius.control),
         border = BorderStroke(1.dp, if (selected) Forest.copy(alpha = 0.45f) else Line),
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            Modifier.fillMaxWidth().padding(horizontal = TendSpace.large, vertical = TendSpace.medium),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(11.dp),
+            horizontalArrangement = Arrangement.spacedBy(TendSpace.medium),
         ) {
             Box(Modifier.size(11.dp).clip(CircleShape).background(if (selected) Gold else Sage))
             Text(label, modifier = Modifier.weight(1f), color = Ink, fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
@@ -383,17 +461,24 @@ internal fun CategoryChoiceRow(label: String, selected: Boolean, onClick: () -> 
 @Composable
 internal fun EntryModeChoice(label: String, selected: Boolean, onClick: () -> Unit) {
     Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        shape = CircleShape,
         color = if (selected) DeepForest else Color.Transparent,
     ) {
-        Row(
-            Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        Box(
+            modifier = Modifier
+                .height(TendSize.control)
+                .padding(horizontal = TendSpace.medium),
+            contentAlignment = Alignment.Center,
         ) {
-            if (selected) Box(Modifier.size(6.dp).clip(CircleShape).background(Gold))
-            Text(label, color = if (selected) Color.White else Muted, fontSize = 13.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
+            Text(
+                text = label,
+                color = if (selected) Color.White else Muted,
+                fontSize = 12.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            )
         }
     }
 }
@@ -402,12 +487,12 @@ internal fun EntryModeChoice(label: String, selected: Boolean, onClick: () -> Un
 private fun CategoryMenuField(label: String, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(15.dp),
+        shape = RoundedCornerShape(TendRadius.control),
         color = Color.White,
         border = BorderStroke(1.dp, Line),
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 14.dp),
+            Modifier.fillMaxWidth().padding(horizontal = TendSpace.large, vertical = TendSpace.large),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
@@ -432,8 +517,8 @@ internal fun tendFieldColors() = OutlinedTextFieldDefaults.colors(
 
 @Composable
 internal fun MonthArrow(symbol: String, description: String, onClick: () -> Unit) {
-    Surface(onClick = onClick, shape = CircleShape, color = Color.White.copy(alpha = 0.75f)) {
-        Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
+    Surface(onClick = onClick, modifier = Modifier.size(44.dp), shape = CircleShape, color = Color.White.copy(alpha = 0.75f)) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(symbol, modifier = Modifier.semantics { contentDescription = description }, color = Ink, fontSize = 23.sp, fontWeight = FontWeight.Medium)
         }
     }

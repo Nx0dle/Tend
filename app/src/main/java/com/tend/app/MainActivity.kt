@@ -84,6 +84,7 @@ class MainActivity : ComponentActivity() {
             val copyPlanMessage by viewModel.copyPlanMessage.collectAsStateWithLifecycle()
             val carryover by viewModel.carryover.collectAsStateWithLifecycle()
             val currentCarryover by viewModel.currentCarryover.collectAsStateWithLifecycle()
+            val carryoverEnabled by viewModel.carryoverEnabled.collectAsStateWithLifecycle()
             val recurringBills by viewModel.recurringBills.collectAsStateWithLifecycle()
             val pendingBillReminders by viewModel.pendingBillReminders.collectAsStateWithLifecycle()
             TendTheme {
@@ -102,10 +103,13 @@ class MainActivity : ComponentActivity() {
                         onAddCategory = viewModel::addCategory,
                         onSetCategoryBudget = viewModel::setCategoryBudget,
                         onSetMonthlyBudget = viewModel::setMonthlyBudget,
+                        onClearMonthlyBudget = viewModel::clearMonthlyBudget,
                         onCopyPreviousPlan = viewModel::copyPreviousPlan,
                         copyPlanMessage = copyPlanMessage,
                         carryoverCents = carryover,
                         currentCarryoverCents = currentCarryover,
+                        carryoverEnabled = carryoverEnabled,
+                        onSetCarryoverEnabled = viewModel::setCarryoverEnabled,
                         onRenameCategory = viewModel::renameCategory,
                         onDeleteCategory = viewModel::deleteCategory,
                         onUpdateEntry = viewModel::updateEntry,
