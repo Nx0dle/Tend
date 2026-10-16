@@ -5,8 +5,13 @@ Repozytorium startuje od jednego bazowego snapshotu istniejącej aplikacji. Kole
 ## Stan obecny
 
 - Lokalny budżet miesięczny, kategorie, rezerwa i historia wydatków.
+- Start pokazuje bieżący miesiąc i szybkie działanie; Budżet jest osobnym obszarem planowania; Kalendarz jest dziennikiem. Kontrakt produktu opisuje `PROJECT-HANDBOOK.md`.
+- Budżet pozwala planować bieżące i przyszłe miesiące, grupuje działania w „Opcjach planu”, kopiuje poprzedni podział limitów (bez puli środków), a przenoszenie salda jest opcjonalne i domyślnie wyłączone; stany planu (historyczny „Tylko podgląd”, przyszły „Z wyprzedzeniem”) komunikowane są zwięzłymi etykietami stanu przy tytule, bez zbędnych tekstów pomocniczych.
+- Kalendarz nie wyświetla kwot w komórkach: znaczniki komunikują rozkład wydatków, a szczegóły są w panelu wybranego dnia.
+- Wspólny język UI jest zdefiniowany tokenami w `TendTheme.kt` i udokumentowany w `UI-GUIDELINES.md`.
 - Ciche alerty po wykorzystaniu 80% i 100% limitu kategorii.
 - Rachunki cykliczne z przypomnieniem i ręcznym zatwierdzeniem wydatku.
+- Aktualizuj `PROJECT-HANDBOOK.md`, `UI-GUIDELINES.md` (gdy dotyczy), README oraz ten plan przy zmianie założeń, funkcji, architektury lub statusu prac.
 
 ## Następne segmenty
 

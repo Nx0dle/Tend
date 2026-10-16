@@ -1,0 +1,136 @@
+# Tend — przewodnik po projekcie
+
+Ten dokument jest punktem wejścia dla każdej osoby lub agenta przejmującego pracę nad aplikacją. Zawiera aktualne założenia produktu, działanie funkcji, strukturę kodu i reguły pracy. Gdy zmienia się zachowanie produktu, architektura albo wspólny język UI, zaktualizuj ten dokument, `README.md` oraz właściwy dokument szczegółowy w tym samym zestawie zmian.
+
+## 1. Produkt
+
+Tend to lokalna aplikacja Android do szybkiego zapisywania wydatków i planowania miesięcznego budżetu według kategorii. Główny przepływ: ustawić miesięczną pulę, rozdzielić ją na limity kategorii, dodawać wpisy bez tarcia i sprawdzać faktyczne wydatki względem planu.
+
+To narzędzie do kontroli codziennych finansów, nie bank, portfel inwestycyjny ani aplikacja społecznościowa. Nie dodawaj ekranów, wskaźników czy powiadomień wyłącznie dlatego, że są typowe dla aplikacji finansowych: każda rzecz musi wspierać konkretną decyzję użytkownika.
+
+## 2. Model ekranów
+
+Dolna nawigacja prowadzi do trzech odrębnych zadań. Gest poziomy pozwala przechodzić między nimi.
+
+### Start — bieżący miesiąc i szybki zapis
+
+- Zawsze pokazuje bieżący miesiąc, niezależnie od miesiąca wybranego w Kalendarzu lub Budżecie.
+- Służy do dodania wydatku/przychodu oraz szybkiej oceny sytuacji teraz: dzisiejsze wpisy z licznikiem, wykorzystanie limitów kategorii ze zwięzłymi etykietami stanu, ostatnia aktywność i stan bieżącego planu.
+- Nie ma nawigacji po miesiącach; jej obecność dublowałaby historię i plan.
+
+### Kalendarz — historia dzienna
+
+- Przegląda wpisy i wydatki według daty. To jedyny ekran dziennika z siatką kalendarza.
+- Może przeglądać wybrane miesiące. Nawigacja miesiąca znajduje się we wspólnym nagłówku.
+- Zapamiętuje własny oglądany miesiąc niezależnie od okresu w Budżecie, więc przygotowanie przyszłego planu nie przenosi dziennika na pusty przyszły miesiąc.
+- Komórki kalendarza pokazują datę oraz dyskretny znacznik wydatku, a nie kwoty transakcji. Dokładne kwoty i lista wpisów są w szczególe wybranego dnia.
+- Wpis można otworzyć do edycji; miesiąc z przeszłości nie powinien przez to zmieniać widoku Start.
+
+### Budżet — plan miesięczny
+
+- Przegląda i edytuje pulę oraz limity kategorii dla wybranego miesiąca.
+- Miesiąc bieżący i przyszły pozwalają przygotować plan. Przyszły plan pokazuje planowane limity, bez etykiet „wydano/pozostało” ani paska zużycia; przychody, alerty progowe i rachunki cykliczne nie są prognozowane.
+- Historyczny miesiąc służy do wglądu; nie edytuj go po cichu.
+- Zmiany planu grupuje akcja „Opcje planu”: ustawienie/zmiana/usunięcie puli, opcjonalne przenoszenie salda i kopiowanie limitów kategorii z poprzedniego miesiąca.
+- Można skopiować limity kategorii z poprzedniego miesiąca tylko wtedy, gdy docelowy miesiąc nie ma jeszcze limitów. Kopiowanie nie przenosi puli: pula jest nowym zasileniem środków dla konkretnego miesiąca.
+- Budżet zapamiętuje swój wybrany miesiąc oddzielnie od Kalendarza. To pozwala wrócić do przyszłego planu bez zmiany okresu dziennika.
+- Rezerwa jest resztą po odjęciu sumy limitów kategorii od dostępnej puli; zmniejsza się po przypisaniu limitu i może być ujemna przy nadmiernej alokacji.
+
+### Nawigacja miesiąca
+
+- Jeden wspólny nagłówek dla trzech ekranów. Wysokość nagłówka i miejsce etykiety miesiąca pozostają stałe przy przełączaniu zakładek.
+- Strzałki są widoczne tylko w Kalendarzu i Budżecie. Start ma zachować ten sam układ nagłówka bez akcji zmiany miesiąca.
+- Nazwa miesiąca po polsku, w jednym wierszu, bez dodatkowej etykiety „bieżący miesiąc”, która przesuwa treść.
+
+## 3. Reguły finansowe i dane
+
+- Kwoty są przechowywane jako całkowite grosze (`Long`), nigdy jako liczby zmiennoprzecinkowe. Formatowanie i parsowanie znajdują się w kodzie UI; waliduj wartości dodatnie tam, gdzie wymagane.
+- Wpis ma typ `expense` lub `income`, kwotę, opcjonalną kategorię, czas zdarzenia i `monthKey` w formacie `YearMonth.toString()` (np. `2026-10`).
+- Wydatek bez kategorii wchodzi do sumy wydatków, ale nie zmniejsza limitu żadnej kategorii.
+- Dostępna pula miesiąca = zaplanowana pula początkowa + przychody zaksięgowane w tym miesiącu + przeniesione środki, jeśli użytkownik włączył tę opcję.
+- Przenoszenie salda jest globalnym ustawieniem (domyślnie wyłączonym). Gdy jest włączone, saldo poprzednich miesięcy liczy się narastająco jako pule tych miesięcy oraz ich przychody minus wydatki. Każdy grosz przechodzi dalej w ramach jednego salda; nie jest ponownie dodawany jako nowa pula.
+- Do salda wliczają się tylko miesiące rozpoczęte lub zakończone, do bieżącego miesiąca włącznie. Pula zaplanowana na przyszłość nie zasila wcześniejszego miesiąca ani kolejnych planów, dopóki ten miesiąc się nie rozpocznie.
+- Pula miesiąca oznacza nowe środki wpłacone/zaplanowane na ten miesiąc. Nie jest szablonem i nie jest kopiowana wraz z limitami. Rekord puli można usunąć bez usuwania limitów.
+- Limity są osobne dla pary kategoria–miesiąc. Suma limitów nie jest automatycznie odejmowana od puli; rezerwa jest wynikiem obliczenia w UI.
+- Usunięcie kategorii jest transakcyjne: czyści jej referencje w transakcjach i rachunkach/przypomnieniach, limity i stany alertów, a potem kategorię. Wpisy pozostają w księdze jako bez kategorii.
+- Usunięcie/zmiana wpisu, budżetu i kategorii musi zachować poprawność historycznych sum i limitów.
+
+## 4. Funkcje istniejące
+
+- Lokalna księga wydatków i przychodów, kategorie wydatków, miesięczna pula i limity kategorii.
+- Szybkie dodawanie z ekranu Start; wpisy mają czas bieżący i trafiają do bieżącego miesiąca.
+- Kalendarz wydatków z wyborem dnia, listą wpisów i edycją istniejącego wpisu.
+- Podsumowanie wydatków po kategoriach z postępem limitów oraz czytelnymi etykietami stanu (`TendBadge`).
+- Dodawanie, zmiana nazwy i usuwanie kategorii; edycja/usunięcie wpisu.
+- Kopiowanie nieistniejących limitów kategorii z miesiąca poprzedniego, bez puli środków.
+- Opcjonalne ciche alerty progów kategorii (80% i limit) dla bieżącego miesiąca. Szczegół techniczny o częstotliwości wysyłania należy do kodu/logiki, a nie do głównej treści UI.
+- Rachunki cykliczne z kategorią, kwotą i dniem miesiąca. Gdy termin minie, powstaje propozycja; dopiero ręczne zatwierdzenie zapisuje wydatek. Pominięcie nie dodaje wydatku. Dni przekraczające długość miesiąca są ograniczane do ostatniego dnia.
+
+## 5. Zakres poza obecnym wydaniem
+
+- Szyfrowana synchronizacja end-to-end jest planowana, ale nie jest zaimplementowana.
+- Brakuje bezpiecznej, kontrolowanej przez użytkownika ścieżki eksportu/odzyskiwania. Automatyczny backup Androida jest wyłączony, aby nie kopiować nieszyfrowanych danych; reinstalacja lub utrata urządzenia może oznaczać utratę lokalnych danych.
+- Nie konfiguruj fikcyjnego backendu, sekretów Firebase ani pozornej synchronizacji. Najpierw zaprojektuj model kluczy, odzyskiwanie, wersjonowanie i konflikty; patrz `docs/ROADMAP.md`.
+
+## 6. Język wizualny i UX
+
+Szczegółowe, trwałe zasady znajdują się w [`UI-GUIDELINES.md`](UI-GUIDELINES.md). Skrót:
+
+- Kierunek: spokojny, precyzyjny, świeży produkt finansowy; nie domyślny Materialowy szablon i nie dekoracyjny dashboard.
+- Paleta: porcelanowe tło, głęboka leśna zieleń dla głównego akcentu, szałwia dla cichych powierzchni, oszczędne mosiężne złoto, atramentowy tekst. Czerwień tylko dla błędów i przekroczeń.
+- Znak aplikacji: umiarkowanej wielkości, wyśrodkowane małe „t” w kroju Roboto Bold i kolorze szałwii na leśnozielonym tle, zgodne z narożnym znakiem w UI; launcher ma warstwy adaptive i monochrome w katalogu `app/src/main/res`.
+- Wspólne odstępy, promienie i czasy ruchu są tokenami `TendSpace`, `TendRadius`, `TendMotion` z `TendTheme.kt`.
+- Zachowuj czytelność przy dużej liczbie wpisów: nie wciskaj kwot ani pełnych opisów do ciasnych komórek.
+- Kontrolki dotykowe mają co najmniej 44 dp pola interakcji. Animacja wyjaśnia zmianę stanu, nie przeszkadza w szybkim zapisie.
+- Powiadomienia, etykiety i podpowiedzi mają uzasadniać miejsce realną korzyścią. Nie pokazuj użytkownikowi implementacyjnych limitów czy mechaniki alertów.
+- Formularze, selektory i modale mają wyglądać jak Tend. Reużywaj komponentów z `TendDialogs.kt`; unikaj nowych surowych dialogów Material bez powodu.
+- Każdy widoczny label ma wnosić nową informację. Nie powtarzaj nazwy miesiąca, sekcji ani wartości w sąsiadujących nagłówkach; stany historyczne („Tylko podgląd”) i planowania w przód („Z wyprzedzeniem”) pokazuj zwięzłym labelem przy tytule zamiast osobnym wierszem czy rozwlekłym tekstem pomocniczym. Unikaj redundantnych dopisków tekstowych pod wskaźnikami (np. kolor paska i kwoty w pełni komunikują zużycie limitu).
+- Przed dodaniem wzorca UI sprawdź jego use case, hierarchię informacji, zachowanie przy długiej treści, ekranach o małej wysokości, pustych danych i danych historycznych.
+
+## 7. Architektura i mapa kodu
+
+| Obszar | Plik | Odpowiedzialność |
+| --- | --- | --- |
+| Android entry point | `app/src/main/java/com/tend/app/MainActivity.kt` | Lifecycle, zbieranie strumieni ViewModelu, uprawnienia i przekazanie danych do UI |
+| Widoki i przepływy | `.../TendHomeScreen.kt` | Nagłówek, taby, gesty, Start/Kalendarz/Budżet, stan ekranów |
+| Współdzielone elementy | `.../TendComponents.kt` | Kalendarz, wykresy i wiersze podsumowań |
+| Edycja i selektory | `.../TendDialogs.kt` | Dialogi, formularze, wybór kategorii, elementy nawigacji miesiąca |
+| UI tokens | `.../TendTheme.kt` | Paleta, Material theme, `TendSpace`, `TendRadius`, `TendMotion` |
+| Stan prezentacji | `.../ui/TendViewModel.kt` | Strumienie obserwacji, akcje aplikacji, wybór miesiąca, powiadomienia budżetowe |
+| Encje i Room | `.../data/*.kt` | Tabele, DAO, baza, repozytorium, transakcje i obliczenia domenowe |
+| Przypomnienia rachunków | `.../notifications/BillReminder*.kt` | Harmonogram workerów i obsługa powiadomienia/propozycji |
+| Alerty budżetowe | `.../notifications/BudgetAlertNotifier.kt` | Kanał i dostarczenie alertu przekroczenia limitu |
+
+Stan wpisów/planów jest lokalnie przechowywany w Room. ViewModel udostępnia osobne strumienie bieżącego miesiąca i wybranego miesiąca, dzięki czemu Start nie podąża za historią Budżetu/Kalendarza. Nie przenoś logiki SQL, reguł finansowych ani trwałego zapisu do Composable. Zapis ma przechodzić przez ViewModel → `LedgerRepository` → DAO.
+
+## 8. Stack i uruchamianie
+
+- Android, Kotlin, Jetpack Compose + Material 3, Room/KSP, Kotlin Coroutines/Flow i WorkManager.
+- Namespace/application id: `com.tend.app`.
+- `minSdk 26`, `compileSdk 36`, `targetSdk 36`, Java 17, Gradle wrapper 8.14.4.
+- Główny moduł aplikacji: `app`.
+- Lokalny build: `./gradlew assembleDebug`.
+- Pliki lokalnego środowiska (`local.properties`, SDK paths, sekrety) nie powinny wchodzić do commitów.
+
+## 9. Workflow dla kolejnych zmian
+
+1. Zacznij od tego przewodnika, `README.md`, `docs/UI-GUIDELINES.md`, `docs/ROADMAP.md` oraz aktualnego kodu; pamięć rozmowy nie jest specyfikacją.
+2. Zapisz, który problem użytkownika zmieniasz i do którego ekranu/warstwy należy.
+3. Zanim dodasz funkcję lub element UI, oceń czy wspiera główny przepływ Tend, czy dubluje istniejącą funkcję, jak działa z pustymi i historycznymi danymi oraz czy jest wart złożoności.
+4. Trzymaj odpowiedzialności w odpowiednich plikach/warstwach. Jeśli kod nowej funkcji rośnie, wyodrębnij komponent lub plik — nie wracaj do monolitu.
+5. Reużywaj tokenów i komponentów. Jeśli świadomie wprowadzisz nową zasadę, zaktualizuj `TendTheme.kt`/`UI-GUIDELINES.md`.
+6. Aktualizuj ten handbook, README i roadmapę w tej samej zmianie, jeśli zmieniły się założenia, zachowanie, architektura, obsługa danych, zależności albo status funkcji.
+7. Zmiany danych sprawdź pod kątem migracji Room, danych starszych wersji, transakcyjności, duplikatów i referencji. Nie zmieniaj schematu bez sprawdzenia `TendDatabase.kt`.
+8. Po implementacji uruchom adekwatną kompilację lub weryfikację, jeśli środowisko pozwala; raportuj uczciwie ograniczenia.
+9. Przed końcem sprawdź `git diff`, usuń przypadkowe pliki/sekrety/artefakty i podsumuj zmianę, weryfikację oraz ryzyka.
+
+## 10. Decyzje i historia produktu
+
+Najważniejsze decyzje wynikające z wymagań właściciela:
+
+- Start, Kalendarz i Budżet nie są trzema widokami tego samego okresu: Start służy działaniu w bieżącym miesiącu; Kalendarz ma niezależny miesiąc dziennika; Budżet ma niezależny miesiąc planu.
+- Nawigacja Budżetu w przyszłość ma konkretny cel: przygotowanie puli i limitów przed rozpoczęciem miesiąca, z opcją skopiowania poprzedniego podziału limitów. Pusty przyszły miesiąc pokazuje akcje ustawienia puli i skopiowania limitów; kopiowanie nie może dublować środków przenoszonych z poprzedniego miesiąca.
+- Nawigacja miesiąca ma sens w Budżecie i Kalendarzu, nie na Start. Wspólny nagłówek nie zmienia jednak położenia przy przełączaniu kart.
+- Kalendarz ma rozwijać obecny kierunek całej aplikacji; stary, generyczny grid z kwotami w każdej komórce jest odrzucony ze względu na skalowanie i czytelność.
+- Spójność tokenów, odstępów, promieni i ruchu jest zasadą na poziomie projektu, nie jednorazowym retuszem.
+- Nowe funkcje oceniamy przed implementacją pod kątem realnego use case i kosztu poznawczego. Nie dodajemy „typowych” elementów bez uzasadnienia.
