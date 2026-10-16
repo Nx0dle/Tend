@@ -45,13 +45,15 @@ Dolna nawigacja prowadzi do trzech odrębnych zadań. Gest poziomy pozwala przec
 ## 3. Reguły finansowe i dane
 
 - Kwoty są przechowywane jako całkowite grosze (`Long`), nigdy jako liczby zmiennoprzecinkowe. Formatowanie i parsowanie znajdują się w kodzie UI; waliduj wartości dodatnie tam, gdzie wymagane.
-- Wpis ma typ `expense` lub `income`, kwotę, opcjonalną kategorię, czas zdarzenia i `monthKey` w formacie `YearMonth.toString()` (np. `2026-10`).
+- Wpis ma typ `LedgerEntry.TYPE_EXPENSE`/`TYPE_INCOME` (stałe, nie surowe stringi), kwotę, opcjonalną kategorię, czas zdarzenia i `monthKey` w formacie `YearMonth.toString()` (np. `2026-10`).
 - Wydatek bez kategorii wchodzi do sumy wydatków, ale nie zmniejsza limitu żadnej kategorii.
 - Dostępna pula miesiąca = zaplanowana pula początkowa + przychody zaksięgowane w tym miesiącu + przeniesione środki, jeśli użytkownik włączył tę opcję.
 - Przenoszenie salda jest globalnym ustawieniem (domyślnie wyłączonym). Gdy jest włączone, saldo poprzednich miesięcy liczy się narastająco jako pule tych miesięcy oraz ich przychody minus wydatki. Każdy grosz przechodzi dalej w ramach jednego salda; nie jest ponownie dodawany jako nowa pula.
 - Do salda wliczają się tylko miesiące rozpoczęte lub zakończone, do bieżącego miesiąca włącznie. Pula zaplanowana na przyszłość nie zasila wcześniejszego miesiąca ani kolejnych planów, dopóki ten miesiąc się nie rozpocznie.
 - Pula miesiąca oznacza nowe środki wpłacone/zaplanowane na ten miesiąc. Nie jest szablonem i nie jest kopiowana wraz z limitami. Rekord puli można usunąć bez usuwania limitów.
 - Limity są osobne dla pary kategoria–miesiąc. Suma limitów nie jest automatycznie odejmowana od puli; rezerwa jest wynikiem obliczenia w UI.
+- Brak wiersza oznacza „brak limitu” albo „pula nieustawiona”. Zapis limitu lub puli równej zero (lub mniejszej) usuwa wiersz, zamiast tworzyć pusty rekord, dzięki czemu kopiowanie planu i etykiety stanu pozostają poprawne.
+- Nieudany zapis (np. błąd dysku) pokazuje użytkownikowi zwięzły komunikat w nagłówku; operacje zapisu nie kończą się cicho.
 - Usunięcie kategorii jest transakcyjne: czyści jej referencje w transakcjach i rachunkach/przypomnieniach, limity i stany alertów, a potem kategorię. Wpisy pozostają w księdze jako bez kategorii.
 - Usunięcie/zmiana wpisu, budżetu i kategorii musi zachować poprawność historycznych sum i limitów.
 
@@ -79,7 +81,7 @@ Szczegółowe, trwałe zasady znajdują się w [`UI-GUIDELINES.md`](UI-GUIDELINE
 - Kierunek: spokojny, precyzyjny, świeży produkt finansowy; nie domyślny Materialowy szablon i nie dekoracyjny dashboard.
 - Paleta: porcelanowe tło, głęboka leśna zieleń dla głównego akcentu, szałwia dla cichych powierzchni, oszczędne mosiężne złoto, atramentowy tekst. Czerwień tylko dla błędów i przekroczeń.
 - Znak aplikacji: umiarkowanej wielkości, wyśrodkowane małe „t” w kroju Roboto Bold i kolorze szałwii na leśnozielonym tle, zgodne z narożnym znakiem w UI; launcher ma warstwy adaptive i monochrome w katalogu `app/src/main/res`.
-- Wspólne odstępy, promienie i czasy ruchu są tokenami `TendSpace`, `TendRadius`, `TendMotion` z `TendTheme.kt`.
+- Wspólne odstępy, promienie, wysokości kontrolek, czasy ruchu i role typograficzne są tokenami `TendSpace`, `TendRadius`, `TendSize`, `TendMotion`, `TendType` z `TendTheme.kt`. Kolory niosące znaczenie (rezerwa, przekroczenie, etykiety na powierzchni hero, podpowiedzi) mają nazwane tokeny w `TendTheme.kt`; nie wpisuj surowych kolorów hex w ekranach.
 - Zachowuj czytelność przy dużej liczbie wpisów: nie wciskaj kwot ani pełnych opisów do ciasnych komórek.
 - Kontrolki dotykowe mają co najmniej 44 dp pola interakcji. Animacja wyjaśnia zmianę stanu, nie przeszkadza w szybkim zapisie.
 - Powiadomienia, etykiety i podpowiedzi mają uzasadniać miejsce realną korzyścią. Nie pokazuj użytkownikowi implementacyjnych limitów czy mechaniki alertów.
@@ -92,16 +94,18 @@ Szczegółowe, trwałe zasady znajdują się w [`UI-GUIDELINES.md`](UI-GUIDELINE
 | Obszar | Plik | Odpowiedzialność |
 | --- | --- | --- |
 | Android entry point | `app/src/main/java/com/tend/app/MainActivity.kt` | Lifecycle, zbieranie strumieni ViewModelu, uprawnienia i przekazanie danych do UI |
-| Widoki i przepływy | `.../TendHomeScreen.kt` | Nagłówek, taby, gesty, Start/Kalendarz/Budżet, stan ekranów |
-| Współdzielone elementy | `.../TendComponents.kt` | Kalendarz, wykresy i wiersze podsumowań |
+| Shell aplikacji | `.../TendHomeScreen.kt` | Nagłówek, nawigacja miesiąca, host tabów, gesty, dolna nawigacja i wspólna edycja wpisu |
+| Ekran Start | `.../TendStartScreen.kt` | Bieżący miesiąc, szybki zapis, kategorie, ostatnie wpisy |
+| Ekran Budżet | `.../TendBudgetScreen.kt` | Plan miesiąca, opcje planu, limity kategorii, rachunki cykliczne |
+| Współdzielone elementy | `.../TendComponents.kt` | Hero, pasek alokacji, wiersze kategorii i wpisu, kalendarz, formatery |
 | Edycja i selektory | `.../TendDialogs.kt` | Dialogi, formularze, wybór kategorii, elementy nawigacji miesiąca |
-| UI tokens | `.../TendTheme.kt` | Paleta, Material theme, `TendSpace`, `TendRadius`, `TendMotion` |
+| UI tokens | `.../TendTheme.kt` | Paleta i kolory semantyczne, Material theme, `TendSpace`, `TendRadius`, `TendSize`, `TendMotion`, `TendType` |
 | Stan prezentacji | `.../ui/TendViewModel.kt` | Strumienie obserwacji, akcje aplikacji, wybór miesiąca, powiadomienia budżetowe |
 | Encje i Room | `.../data/*.kt` | Tabele, DAO, baza, repozytorium, transakcje i obliczenia domenowe |
 | Przypomnienia rachunków | `.../notifications/BillReminder*.kt` | Harmonogram workerów i obsługa powiadomienia/propozycji |
 | Alerty budżetowe | `.../notifications/BudgetAlertNotifier.kt` | Kanał i dostarczenie alertu przekroczenia limitu |
 
-Stan wpisów/planów jest lokalnie przechowywany w Room. ViewModel udostępnia osobne strumienie bieżącego miesiąca i wybranego miesiąca, dzięki czemu Start nie podąża za historią Budżetu/Kalendarza. Nie przenoś logiki SQL, reguł finansowych ani trwałego zapisu do Composable. Zapis ma przechodzić przez ViewModel → `LedgerRepository` → DAO.
+Stan wpisów/planów jest lokalnie przechowywany w Room. ViewModel udostępnia osobne strumienie bieżącego miesiąca i wybranego miesiąca, dzięki czemu Start nie podąża za historią Budżetu/Kalendarza. Nie przenoś logiki SQL, reguł finansowych ani trwałego zapisu do Composable. Zapis ma przechodzić przez ViewModel → `LedgerRepository` → DAO. Schematy Room są eksportowane do `app/schemas` (plugin `androidx.room`); commituj je razem ze zmianą schematu, bo są punktem odniesienia dla migracji.
 
 ## 8. Stack i uruchamianie
 

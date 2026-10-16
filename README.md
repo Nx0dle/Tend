@@ -14,15 +14,17 @@ Still to implement: optional end-to-end encrypted sync. Android automatic backup
 
 ## Build environment
 
-The project targets JDK 17, Android SDK 36, and Gradle 8.14.4. Gradle is provided by the project wrapper.
+The project targets JDK 17, Android SDK 36, and Gradle 8.14.4. Gradle is provided by the project wrapper. Room schemas are exported to `app/schemas`; commit them alongside schema changes.
 
 ## UI code map
 
 - `MainActivity.kt` wires Android lifecycle, permissions, ViewModel streams, and the root theme.
-- `TendHomeScreen.kt` owns tab navigation and the three distinct screen flows.
-- `TendComponents.kt` contains calendar, category summaries, charts, and shared display rows.
+- `TendHomeScreen.kt` is the app shell: shared header, month navigation, tab host, bottom navigation, and entry editing.
+- `TendStartScreen.kt` is the current-month Start tab: quick entry, category progress, and recent entries.
+- `TendBudgetScreen.kt` is the monthly Budget tab: plan options, category limits, and recurring bills.
+- `TendComponents.kt` contains the shared hero card, allocation bar, category/entry rows, calendar, and formatters.
 - `TendDialogs.kt` contains editing flows and the custom Tend dialog/input components.
-- `TendTheme.kt` defines the app palette, spacing, shape, motion tokens, and Material theme.
+- `TendTheme.kt` defines the palette and semantic colors plus the spacing, shape, size, motion, and type tokens, and the Material theme.
 
 The persistent visual and interaction rules live in [`docs/UI-GUIDELINES.md`](docs/UI-GUIDELINES.md). Treat it as the source of truth when adding or changing UI.
 
