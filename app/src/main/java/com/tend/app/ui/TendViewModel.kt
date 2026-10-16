@@ -1,6 +1,7 @@
 package com.tend.app.ui
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.tend.app.data.LedgerEntry
@@ -17,6 +18,8 @@ import java.util.UUID
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -26,6 +29,9 @@ import kotlinx.coroutines.launch
 class TendViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = LedgerRepository(TendDatabase.get(application))
     private val budgetAlertNotifier = BudgetAlertNotifier(application)
+    private val preferences = application.getSharedPreferences("tend_settings", Context.MODE_PRIVATE)
+    private val _carryoverEnabled = MutableStateFlow(preferences.getBoolean("carryover_enabled", false))
+    val carryoverEnabled = _carryoverEnabled.asStateFlow()
     private val _selectedMonth = MutableStateFlow(YearMonth.now())
     val selectedMonth = _selectedMonth.asStateFlow()
     private val _currentMonth = MutableStateFlow(YearMonth.now())
@@ -44,7 +50,8 @@ class TendViewModel(application: Application) : AndroidViewModel(application) {
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = null,
     )
-    val currentCarryover = _currentMonth.flatMapLatest { repository.observeCarryover(it.toString()) }.stateIn(
+    val currentCarryover = combine(_currentMonth, carryoverEnabled) { month, enabled -> month to enabled }
+        .flatMapLatest { (month, enabled) -> if (enabled) repository.observeCarryover(month.toString()) else flowOf(0L) }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = 0L,
@@ -76,7 +83,8 @@ class TendViewModel(application: Application) : AndroidViewModel(application) {
         initialValue = null,
     )
 
-    val carryover = selectedMonth.flatMapLatest { repository.observeCarryover(it.toString()) }.stateIn(
+    val carryover = combine(selectedMonth, carryoverEnabled) { month, enabled -> month to enabled }
+        .flatMapLatest { (month, enabled) -> if (enabled) repository.observeCarryover(month.toString()) else flowOf(0L) }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = 0L,
@@ -207,11 +215,26 @@ class TendViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun clearMonthlyBudget() {
+        viewModelScope.launch {
+            repository.deleteMonthlyBudget(selectedMonth.value.toString())
+        }
+    }
+
+    fun setCarryoverEnabled(enabled: Boolean) {
+        preferences.edit().putBoolean("carryover_enabled", enabled).apply()
+        _carryoverEnabled.value = enabled
+    }
+
     fun copyPreviousPlan() {
         viewModelScope.launch {
             val currentMonth = selectedMonth.value
             val copied = repository.copyPlan(currentMonth.minusMonths(1).toString(), currentMonth.toString())
-            _copyPlanMessage.value = if (copied) "Skopiowano budżet z poprzedniego miesiąca." else "Brak planu do skopiowania albo budżet tego miesiąca już istnieje."
+            _copyPlanMessage.value = if (copied) {
+                "Skopiowano limity z poprzedniego miesiąca."
+            } else {
+                "W poprzednim miesiącu nie ma limitów do skopiowania."
+            }
         }
     }
 

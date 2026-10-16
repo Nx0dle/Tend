@@ -18,8 +18,8 @@ class LedgerRepository(private val database: TendDatabase) {
     fun observeMonthlyBudget(monthKey: String): Flow<MonthlyBudget?> = dao.observeMonthlyBudget(monthKey)
 
     fun observeCarryover(monthKey: String): Flow<Long> = combine(
-        dao.observePlannedBefore(monthKey),
-        dao.observeNetEntriesBefore(monthKey),
+        dao.observePlannedBefore(monthKey, YearMonth.now().toString()),
+        dao.observeNetEntriesBefore(monthKey, YearMonth.now().toString()),
     ) { plannedBefore, netEntriesBefore -> plannedBefore + netEntriesBefore }
 
     suspend fun addEntry(entry: LedgerEntry) = dao.insert(entry)
@@ -45,15 +45,13 @@ class LedgerRepository(private val database: TendDatabase) {
 
     suspend fun saveMonthlyBudget(budget: MonthlyBudget) = dao.saveMonthlyBudget(budget)
 
+    suspend fun deleteMonthlyBudget(monthKey: String) = dao.deleteMonthlyBudget(monthKey)
+
     suspend fun copyPlan(sourceMonth: String, targetMonth: String): Boolean = database.withTransaction {
-        if (dao.getMonthlyBudget(targetMonth) != null || dao.getBudgets(targetMonth).isNotEmpty()) return@withTransaction false
-        val sourceTotal = dao.getMonthlyBudget(sourceMonth)
+        if (dao.getBudgets(targetMonth).isNotEmpty()) return@withTransaction false
         val sourceBudgets = dao.getBudgets(sourceMonth)
-        if (sourceTotal == null && sourceBudgets.isEmpty()) return@withTransaction false
-        sourceTotal?.let { dao.saveMonthlyBudget(it.copy(monthKey = targetMonth)) }
-        if (sourceBudgets.isNotEmpty()) {
-            dao.saveBudgets(sourceBudgets.map { it.copy(monthKey = targetMonth) })
-        }
+        if (sourceBudgets.isEmpty()) return@withTransaction false
+        dao.saveBudgets(sourceBudgets.map { it.copy(monthKey = targetMonth) })
         true
     }
 

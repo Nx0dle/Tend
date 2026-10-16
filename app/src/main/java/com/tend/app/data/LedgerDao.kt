@@ -61,6 +61,9 @@ interface LedgerDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveMonthlyBudget(budget: MonthlyBudget)
 
+    @Query("DELETE FROM monthly_budgets WHERE monthKey = :monthKey")
+    suspend fun deleteMonthlyBudget(monthKey: String)
+
     @Query("SELECT * FROM category_budgets WHERE monthKey = :monthKey")
     suspend fun getBudgets(monthKey: String): List<CategoryBudget>
 
@@ -70,11 +73,11 @@ interface LedgerDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveBudgets(budgets: List<CategoryBudget>)
 
-    @Query("SELECT COALESCE(SUM(plannedCents), 0) FROM monthly_budgets WHERE monthKey < :monthKey")
-    fun observePlannedBefore(monthKey: String): Flow<Long>
+    @Query("SELECT COALESCE(SUM(plannedCents), 0) FROM monthly_budgets WHERE monthKey < :monthKey AND monthKey <= :throughMonthKey")
+    fun observePlannedBefore(monthKey: String, throughMonthKey: String): Flow<Long>
 
-    @Query("SELECT COALESCE(SUM(CASE WHEN type = 'income' THEN amountCents ELSE -amountCents END), 0) FROM ledger_entries WHERE monthKey < :monthKey")
-    fun observeNetEntriesBefore(monthKey: String): Flow<Long>
+    @Query("SELECT COALESCE(SUM(CASE WHEN type = 'income' THEN amountCents ELSE -amountCents END), 0) FROM ledger_entries WHERE monthKey < :monthKey AND monthKey <= :throughMonthKey")
+    fun observeNetEntriesBefore(monthKey: String, throughMonthKey: String): Flow<Long>
 
     @Query("SELECT * FROM category_budgets WHERE categoryId = :categoryId AND monthKey = :monthKey LIMIT 1")
     suspend fun getCategoryBudget(categoryId: String, monthKey: String): CategoryBudget?
