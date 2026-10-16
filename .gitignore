@@ -6,6 +6,9 @@ local.properties
 .kotlin/
 **/build/
 
+# Locally installed toolchains (e.g. JDK) - per-machine, never committed
+.tools/
+
 # IDE and operating system files
 .idea/
 *.iml
