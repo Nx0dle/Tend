@@ -13,6 +13,7 @@ data class CategoryBudgetAlertState(
 data class BudgetAlertEvent(
     val categoryId: String,
     val monthKey: String,
+    val categoryName: String,
     val warningReached: Boolean,
     val limitReached: Boolean,
 )

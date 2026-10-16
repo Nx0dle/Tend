@@ -82,6 +82,12 @@ interface LedgerDao {
     @Query("SELECT * FROM category_budgets WHERE categoryId = :categoryId AND monthKey = :monthKey LIMIT 1")
     suspend fun getCategoryBudget(categoryId: String, monthKey: String): CategoryBudget?
 
+    @Query("DELETE FROM category_budgets WHERE categoryId = :categoryId AND monthKey = :monthKey")
+    suspend fun deleteCategoryBudget(categoryId: String, monthKey: String)
+
+    @Query("SELECT * FROM expense_categories WHERE id = :categoryId LIMIT 1")
+    suspend fun getCategory(categoryId: String): ExpenseCategory?
+
     @Query("SELECT COALESCE(SUM(amountCents), 0) FROM ledger_entries WHERE categoryId = :categoryId AND monthKey = :monthKey AND type = 'expense'")
     suspend fun getCategoryExpenseTotal(categoryId: String, monthKey: String): Long
 

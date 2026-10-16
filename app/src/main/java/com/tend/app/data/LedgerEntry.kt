@@ -15,4 +15,9 @@ data class LedgerEntry(
     val type: String,
     val occurredAtEpochMillis: Long,
     val monthKey: String,
-)
+) {
+    companion object {
+        const val TYPE_EXPENSE = "expense"
+        const val TYPE_INCOME = "income"
+    }
+}

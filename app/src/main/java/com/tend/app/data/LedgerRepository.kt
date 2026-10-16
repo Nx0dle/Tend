@@ -43,6 +43,15 @@ class LedgerRepository(private val database: TendDatabase) {
 
     suspend fun saveBudget(budget: CategoryBudget) = dao.saveBudget(budget)
 
+    /** Setting a zero or negative limit clears it, so "no limit" is the absence of a row. */
+    suspend fun setCategoryBudget(categoryId: String, monthKey: String, amountCents: Long) {
+        if (amountCents <= 0L) {
+            dao.deleteCategoryBudget(categoryId, monthKey)
+        } else {
+            dao.saveBudget(CategoryBudget(categoryId, monthKey, amountCents))
+        }
+    }
+
     suspend fun saveMonthlyBudget(budget: MonthlyBudget) = dao.saveMonthlyBudget(budget)
 
     suspend fun deleteMonthlyBudget(monthKey: String) = dao.deleteMonthlyBudget(monthKey)
@@ -71,7 +80,7 @@ class LedgerRepository(private val database: TendDatabase) {
                             limitSent = previous.limitSent || limit,
                         ),
                     )
-                    add(BudgetAlertEvent(budget.categoryId, monthKey, warning, limit))
+                    add(BudgetAlertEvent(budget.categoryId, monthKey, dao.getCategory(budget.categoryId)?.name ?: "Kategoria", warning, limit))
                 }
             }
         }
@@ -116,7 +125,7 @@ class LedgerRepository(private val database: TendDatabase) {
             id = "bill:${reminder.billId}:${reminder.monthKey}",
             amountCents = reminder.amountCents,
             categoryId = reminder.categoryId,
-            type = "expense",
+            type = LedgerEntry.TYPE_EXPENSE,
             occurredAtEpochMillis = reminder.dueAtEpochMillis,
             monthKey = reminder.monthKey,
         )
