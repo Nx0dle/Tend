@@ -3,22 +3,36 @@
     android:height="200dp"
     android:viewportWidth="200"
     android:viewportHeight="200">
+    <!-- Porcelain card with the brand header and a couple of limit bars: the light counterpart of
+         the phone Start tab, matching what the real Tile renders. -->
     <path
-        android:fillColor="#103E35"
+        android:fillColor="#F5F3EC"
         android:pathData="M0,0h200v200h-200z" />
     <path
-        android:fillColor="#DCEBE2"
-        android:pathData="M24,32h72v12h-72z" />
+        android:fillColor="#64766F"
+        android:pathData="M60,42h80v10h-80z" />
+    <path
+        android:fillColor="#18332D"
+        android:pathData="M54,58h92v22h-92z" />
+    <path
+        android:fillColor="#64766F"
+        android:pathData="M40,88h120v9h-120z" />
+    <path
+        android:fillColor="#DCE4DE"
+        android:pathData="M40,118h120v8h-120z" />
     <path
         android:fillColor="#C69A52"
-        android:pathData="M24,64h152v10h-152z" />
+        android:pathData="M40,118h80v8h-80z" />
+    <path
+        android:fillColor="#DCE4DE"
+        android:pathData="M40,140h120v8h-120z" />
     <path
         android:fillColor="#73A58A"
-        android:pathData="M24,92h96v10h-96z" />
+        android:pathData="M40,140h48v8h-48z" />
     <path
-        android:fillColor="#D6B36B"
-        android:pathData="M24,120h60v10h-60z" />
+        android:fillColor="#DCE4DE"
+        android:pathData="M40,162h120v8h-120z" />
     <path
         android:fillColor="#C87963"
-        android:pathData="M24,148h124v10h-124z" />
+        android:pathData="M40,162h96v8h-96z" />
 </vector>

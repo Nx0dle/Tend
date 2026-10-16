@@ -1,8 +1,8 @@
 package com.tend.wear
 
-import android.app.PendingIntent
-import android.content.Intent
+import android.util.Log
 import androidx.concurrent.futures.CallbackToFutureAdapter
+import androidx.wear.protolayout.ActionBuilders
 import androidx.wear.protolayout.ColorBuilders
 import androidx.wear.protolayout.DimensionBuilders
 import androidx.wear.protolayout.LayoutElementBuilders
@@ -17,6 +17,7 @@ import com.tend.shared.TendPalette
 import com.tend.shared.WatchCategory
 import com.tend.shared.WatchSnapshot
 import com.tend.shared.formatWatchMoney
+import com.tend.shared.formatWatchMoneyCompact
 import com.tend.shared.limitRatio
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,12 +36,21 @@ class TendTileService : TileService() {
         requestParams: RequestBuilders.TileRequest,
     ): ListenableFuture<TileBuilders.Tile> = CallbackToFutureAdapter.getFuture { completer ->
         serviceScope.launch {
-            try {
-                val snapshot = WatchSnapshotStore.read(applicationContext)
-                completer.set(buildTile(requestParams, snapshot))
+            // Never complete exceptionally: a thrown tile request makes the system render an empty
+            // (black) tile. Fall back to the no-data layout instead.
+            val snapshot = try {
+                WatchSnapshotStore.read(applicationContext)
             } catch (throwable: Throwable) {
-                completer.setException(throwable)
+                Log.w(TAG, "snapshot read failed", throwable)
+                null
             }
+            val tile = try {
+                buildTile(requestParams, snapshot)
+            } catch (throwable: Throwable) {
+                Log.e(TAG, "tile build failed", throwable)
+                buildTile(requestParams, null)
+            }
+            completer.set(tile)
         }
         "TendTileService#onTileRequest"
     }
@@ -73,8 +83,13 @@ class TendTileService : TileService() {
     ): LayoutElementBuilders.LayoutElement {
         val column = LayoutElementBuilders.Column.Builder()
             .setWidth(DimensionBuilders.expand())
+            .setHeight(DimensionBuilders.expand())
             .setModifiers(
                 ModifiersBuilders.Modifiers.Builder()
+                    // Tiles get no background from the system, and Tend's palette is a light theme
+                    // (dark ink on porcelain). Without this the dark text lands on black and the
+                    // tile looks empty.
+                    .setBackground(solidBackground(TendPalette.PORCELAIN))
                     .setPadding(ModifiersBuilders.Padding.Builder().setAll(DimensionBuilders.dp(H_PADDING_DP)).build())
                     .setClickable(openAppClickable())
                     .build(),
@@ -84,7 +99,7 @@ class TendTileService : TileService() {
         if (snapshot.hasPool) {
             column.addContent(
                 styledText(
-                    "Pula ${formatWatchMoney(snapshot.availableCents)} · Limity ${formatWatchMoney(snapshot.allocatedCents)}",
+                    "Pula ${formatWatchMoneyCompact(snapshot.availableCents)} · Limity ${formatWatchMoneyCompact(snapshot.allocatedCents)}",
                     TendPalette.MUTED,
                     11f,
                 ),
@@ -185,8 +200,10 @@ class TendTileService : TileService() {
     private fun emptyState(): LayoutElementBuilders.LayoutElement =
         LayoutElementBuilders.Column.Builder()
             .setWidth(DimensionBuilders.expand())
+            .setHeight(DimensionBuilders.expand())
             .setModifiers(
                 ModifiersBuilders.Modifiers.Builder()
+                    .setBackground(solidBackground(TendPalette.PORCELAIN))
                     .setPadding(ModifiersBuilders.Padding.Builder().setAll(DimensionBuilders.dp(H_PADDING_DP)).build())
                     .setClickable(openAppClickable())
                     .build(),
@@ -205,6 +222,11 @@ class TendTileService : TileService() {
                     .setBackground(background(argb, 4f))
                     .build(),
             )
+            .build()
+
+    private fun solidBackground(argb: Long): ModifiersBuilders.Background =
+        ModifiersBuilders.Background.Builder()
+            .setColor(ColorBuilders.argb(argb.toInt()))
             .build()
 
     private fun background(argb: Long, cornerRadiusDp: Float): ModifiersBuilders.Background =
@@ -236,36 +258,40 @@ class TendTileService : TileService() {
             )
             .build()
 
-    private fun openAppClickable(): ModifiersBuilders.Clickable {
-        val intent = Intent(this, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-        return ModifiersBuilders.Clickable.Builder()
+    private fun openAppClickable(): ModifiersBuilders.Clickable =
+        ModifiersBuilders.Clickable.Builder()
             .setId("open-tend")
-            .setOnClick(pendingIntent)
+            // LaunchAction is the Action that carries an AndroidActivity; the PendingIntent
+            // overload of setOnClick throws unless the builder came from a ProtoLayoutScope, which
+            // is what kept the whole tile from rendering and left it black.
+            .setOnClick(
+                ActionBuilders.LaunchAction.Builder()
+                    .setAndroidActivity(
+                        ActionBuilders.AndroidActivity.Builder()
+                            .setPackageName(packageName)
+                            .setClassName(MainActivity::class.java.name)
+                            .build(),
+                    )
+                    .build(),
+            )
             .build()
-    }
 
     private fun amountLabel(category: WatchCategory, hasLimit: Boolean): String =
         if (hasLimit) {
-            "${formatWatchMoney(category.spentCents)} / ${formatWatchMoney(category.limitCents)}"
+            "${formatWatchMoneyCompact(category.spentCents)} / ${formatWatchMoneyCompact(category.limitCents)}"
         } else {
-            formatWatchMoney(category.spentCents)
+            formatWatchMoneyCompact(category.spentCents)
         }
 
     private fun caption(category: WatchCategory, hasLimit: Boolean): String = when {
-        !hasLimit -> "wydano · bez limitu"
+        !hasLimit -> "bez limitu"
         category.spentCents > category.limitCents ->
-            "${formatWatchMoney(category.spentCents - category.limitCents)} ponad limit"
-        else -> "${formatWatchMoney(category.limitCents - category.spentCents)} pozostało"
+            "ponad limit o ${formatWatchMoneyCompact(category.spentCents - category.limitCents)}"
+        else -> "zostało ${formatWatchMoneyCompact(category.limitCents - category.spentCents)}"
     }
 
     private companion object {
+        const val TAG = "TendWear"
         const val RESOURCES_VERSION = "1"
         const val FRESHNESS_MILLIS = 60_000L
         const val H_PADDING_DP = 12f
