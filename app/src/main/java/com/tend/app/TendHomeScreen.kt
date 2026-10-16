@@ -572,13 +572,6 @@ internal fun TendHomeScreen(
                         Spacer(Modifier.height(TendSpace.small))
                         TendSectionHeader(
                             title = "Plan miesiąca",
-                            badge = {
-                                if (!canEditTabPlan) {
-                                    TendBadge("Tylko podgląd", color = Forest, containerColor = Sage)
-                                } else if (isFutureTabPlan) {
-                                    TendBadge("Z wyprzedzeniem", color = Forest, containerColor = Sage)
-                                }
-                            },
                             action = {
                                 if (canEditTabPlan) {
                                     TextButton(onClick = { showPlanOptions = true }) {
@@ -587,6 +580,13 @@ internal fun TendHomeScreen(
                                 }
                             },
                         )
+                        if (!canEditTabPlan) {
+                            Spacer(Modifier.height(TendSpace.small))
+                            TendBadge("Tylko podgląd", color = Forest, containerColor = Sage)
+                        } else if (isFutureTabPlan) {
+                            Spacer(Modifier.height(TendSpace.small))
+                            TendBadge("Planowanie z wyprzedzeniem", color = Forest, containerColor = Sage)
+                        }
                         if (canEditTabPlan && !isFutureTabPlan && !notificationsEnabled) {
                             TextButton(onClick = onEnableNotifications) {
                                 Text("Włącz powiadomienia o limitach")
