@@ -75,6 +75,8 @@ Dolna nawigacja prowadzi do trzech odrębnych zadań. Gest poziomy pozwala przec
 - Telefon liczy migawkę w `TendViewModel.buildWatchSnapshot` z tych samych strumieni co Start (bieżące wpisy, kategorie, limity, pula, przenoszone saldo) i wypycha ją w `WearSyncManager` ścieżką `WatchSync.SNAPSHOT_PATH`. Baza Room nigdy nie opuszcza telefonu; zegarek dostaje wyłącznie ostatnią migawkę.
 - Moduł `wear` używa tego samego `applicationId` (`com.tend.app`) co telefon. Wear Data Layer wymaga zgodnej nazwy pakietu i podpisu po obu stronach; bez tego zegarek nie odczyta danych. Namespace kodu pozostaje `com.tend.wear`.
 - Kafelek (`TendTileService`) nie przewija się, więc pokazuje tyle wierszy, ile mieści się na ekranie, plus licznik „+N więcej”, i otwiera aplikację po dotknięciu. Pełna, przewijalna lista kategorii jest w `WearApp`.
+- Ekran (`WearApp`) używa `ScalingLazyColumn` z `androidx.wear.compose:compose-foundation`, więc treść skaluje się i zanika przy krawędziach okrągłego ekranu, a lista domyślnie reaguje na obracany/pierścień wirtualny z haptycznym „tyknięciem” na element — bez własnego kodu rotacji.
+- Ikona launchera to adaptacyjna ikona (`mipmap-anydpi-v26/ic_launcher`) z zielonym tłem marki i wektorowym znakiem „t” (`drawable/ic_tend_foreground.xml`) dopasowanym do bezpiecznej strefy okrągłego ekranu, plus warstwa `monochrome`.
 - Zegarek jest tylko odbiorcą: brak własnej bazy i historii. Gdy proces telefonu jest zabity, migawka nie jest odświeżana; zegarek pokazuje ostatni znany stan.
 
 
@@ -127,7 +129,7 @@ Stan wpisów/planów jest lokalnie przechowywany w Room. ViewModel udostępnia o
 - Namespace/application id: `com.tend.app`.
 - `minSdk 26`, `compileSdk 36`, `targetSdk 36`, Java 17, Gradle wrapper 8.14.4.
 - Główny moduł aplikacji: `app`.
-- Moduły companion: `core` (biblioteka Androida z kontraktem danych wspólnym dla telefonu i zegarka) oraz `wear` (aplikacja Wear OS: kafelek + ekran). Zegarek używa Compose, `androidx.wear.tiles` i `play-services-wearable` (Wear Data Layer). `wear` ma `minSdk 30`.
+- Moduły companion: `core` (biblioteka Androida z kontraktem danych wspólnym dla telefonu i zegarka) oraz `wear` (aplikacja Wear OS: kafelek + ekran). Zegarek używa Compose, `androidx.wear.tiles`, `androidx.wear.compose:compose-foundation` (lista na okrągły ekran + rotacja) i `play-services-wearable` (Wear Data Layer). `wear` ma `minSdk 30`.
 - Lokalny build: `./gradlew assembleDebug` (buduje wszystkie moduły).
 - Pliki lokalnego środowiska (`local.properties`, SDK paths, sekrety) nie powinny wchodzić do commitów.
 

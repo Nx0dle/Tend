@@ -58,7 +58,7 @@ Gałąź: `feat/wear-hardening`
 
 - Odświeżanie w tle: nasłuch zmian danych po stronie telefonu (usługa Data Layer) tak, by zegarek aktualizował się bez otwierania aplikacji telefonu.
 - Odpytywanie na żądanie z zegarka i czytelny stan „ostatnia synchronizacja”.
-- Weryfikacja na prawdziwym zegarku (kafelek, ekran, układ na okrągłym ekranie, duże czcionki) oraz testy kodeka migawki.
-- Rozważyć uzupełnienie kompozycji o warianty okrągłe i obsługę trybu ambient.
+- Weryfikacja na prawdziwym zegarku (kafelek, ekran, duże czcionki) oraz testy kodeka migawki.
+- Tryb ambient i dodatkowe rozmiary ekranów (poza okrągłym, już obsłużonym przez `ScalingLazyColumn`).
 
 Każdy segment powinien kończyć się spójnym commitem. Nie łączymy zmian konfiguracji środowiska lokalnego ani artefaktów kompilacji z kodem aplikacji.

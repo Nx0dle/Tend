@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -38,6 +36,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.items
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import com.tend.shared.WatchCategory
 import com.tend.shared.WatchSnapshot
 import com.tend.shared.formatWatchMoney
@@ -47,6 +48,10 @@ import java.time.YearMonth
 /**
  * Wear app screen: a scrollable, phone-identical list of categories. A category with a limit shows a
  * progress bar; one without a limit shows just its amount. The Tile is the glanceable companion.
+ *
+ * The list is a [ScalingLazyColumn] so it curves with the round display (items shrink and fade
+ * towards the edges) and, out of the box, reacts to the rotating/virtual bezel with the familiar
+ * Wear haptic tick per item.
  */
 @Composable
 fun WearApp() {
@@ -76,9 +81,11 @@ fun WearApp() {
 
 @Composable
 private fun SnapshotList(snapshot: WatchSnapshot, onRefresh: () -> Unit) {
-    LazyColumn(
+    val listState = rememberScalingLazyListState()
+    ScalingLazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+        state = listState,
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         item { Header(snapshot) }
@@ -87,7 +94,7 @@ private fun SnapshotList(snapshot: WatchSnapshot, onRefresh: () -> Unit) {
                 "Kategorie",
                 modifier = Modifier.padding(top = 10.dp, bottom = 4.dp),
                 color = Ink,
-                fontSize = 16.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
             )
         }
@@ -116,7 +123,7 @@ private fun Header(snapshot: WatchSnapshot) {
         Text(
             formatWatchMoney(snapshot.totalSpentCents),
             color = Ink,
-            fontSize = 28.sp,
+            fontSize = 26.sp,
             fontWeight = FontWeight.SemiBold,
         )
         Text(

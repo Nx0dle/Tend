@@ -40,6 +40,10 @@ dependencies {
 
     implementation(project(":core"))
 
+    // Round-screen list that scales towards the edges and handles the rotating/virtual bezel
+    // (including the per-item haptic tick) out of the box.
+    implementation("androidx.wear.compose:compose-foundation:1.6.2")
+
     // Phone -> watch data channel.
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
 
