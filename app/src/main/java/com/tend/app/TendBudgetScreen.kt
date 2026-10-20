@@ -144,13 +144,14 @@ internal fun BudgetTab(
                 val spent = entries.filter { it.categoryId == category.id && it.type == LedgerEntry.TYPE_EXPENSE }.sumOf { it.amountCents }
                 val limit = budgets.firstOrNull { it.categoryId == category.id }?.amountCents ?: 0L
                 if (!canEditPlan) {
-                    CategoryRow(category = category, spentCents = spent, budgetCents = limit)
+                    CategoryRow(category = category, spentCents = spent, budgetCents = limit, showSpendInfo = false)
                 } else {
                     CategoryRow(
                         category = category,
                         spentCents = spent,
                         budgetCents = limit,
                         isFuturePlan = isFuturePlan,
+                        showSpendInfo = false,
                         onEditBudget = {
                             budgetCategory = category
                             budgetAmount = if (limit == 0L) "" else String.format(Locale.forLanguageTag("pl-PL"), "%.2f", limit / 100.0)

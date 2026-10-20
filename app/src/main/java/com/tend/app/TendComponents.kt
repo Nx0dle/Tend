@@ -335,6 +335,7 @@ internal fun CategoryRow(
     budgetCents: Long,
     modifier: Modifier = Modifier,
     isFuturePlan: Boolean = false,
+    showSpendInfo: Boolean = true,
     onEditBudget: (() -> Unit)? = null,
     onManageCategory: (() -> Unit)? = null,
 ) {
@@ -360,10 +361,10 @@ internal fun CategoryRow(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    if (budgetCents > 0L && spentCents > budgetCents) {
+                    if (showSpendInfo && budgetCents > 0L && spentCents > budgetCents) {
                         Spacer(Modifier.width(TendSpace.small))
                         TendBadge("Ponad limit", color = Danger, containerColor = Danger.copy(alpha = 0.12f))
-                    } else if (budgetCents > 0L && ratio >= 0.8f) {
+                    } else if (showSpendInfo && budgetCents > 0L && ratio >= 0.8f) {
                         Spacer(Modifier.width(TendSpace.small))
                         TendBadge("80% limitu", color = NoticeText, containerColor = Gold.copy(alpha = 0.18f))
                     } else if (isFuturePlan && budgetCents == 0L && onEditBudget != null) {
@@ -372,10 +373,10 @@ internal fun CategoryRow(
                     }
                 }
                 Spacer(Modifier.height(TendSpace.xsmall))
+                val limitCaption = if (budgetCents == 0L) "Nieustawiony limit" else "Limit ${formatMoney(budgetCents)}"
                 Text(
                     when {
-                        isFuturePlan && budgetCents == 0L -> "Nieustawiony limit"
-                        isFuturePlan -> "Limit ${formatMoney(budgetCents)}"
+                        !showSpendInfo || isFuturePlan -> limitCaption
                         budgetCents == 0L -> "${formatMoney(spentCents)} wydano · bez limitu"
                         spentCents <= budgetCents -> "${formatMoney(spentCents)} wydano · ${formatMoney(budgetCents - spentCents)} pozostało"
                         else -> "${formatMoney(spentCents)} wydano · ${formatMoney(spentCents - budgetCents)} ponad limit"
@@ -388,7 +389,7 @@ internal fun CategoryRow(
                 TextButton(onClick = onEditBudget) { Text(if (budgetCents == 0L) "Ustaw limit" else "Edytuj") }
             }
         }
-        if (budgetCents > 0L && !isFuturePlan) {
+        if (showSpendInfo && budgetCents > 0L && !isFuturePlan) {
             Spacer(Modifier.height(TendSpace.small))
             LinearProgressIndicator(
                 progress = { animatedRatio },
