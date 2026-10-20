@@ -162,6 +162,8 @@ internal fun CalendarContent(
         ) { date ->
             val dayEntries = entries.filter { Instant.ofEpochMilli(it.occurredAtEpochMillis).atZone(zone).toLocalDate() == date }
             val dayExpenses = dayEntries.filter { it.type == LedgerEntry.TYPE_EXPENSE }.sumOf { it.amountCents }
+            val dayIncome = dayEntries.filter { it.type == LedgerEntry.TYPE_INCOME }.sumOf { it.amountCents }
+            val dayTotal = dayIncome - dayExpenses
             Column(
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(TendRadius.card)).background(Color.White).padding(TendSpace.large),
                 verticalArrangement = Arrangement.spacedBy(TendSpace.small),
@@ -173,7 +175,14 @@ internal fun CalendarContent(
                         color = Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
-                    if (dayExpenses > 0L) Text(formatMoney(dayExpenses), color = Forest, style = TendType.rowAmount)
+                    if (dayEntries.isNotEmpty() && dayTotal != 0L) {
+                        val isNetIncome = dayTotal > 0L
+                        Text(
+                            "${if (isNetIncome) "+" else "−"} ${formatMoney(kotlin.math.abs(dayTotal))}",
+                            color = if (isNetIncome) Forest else Ink,
+                            style = TendType.rowAmount,
+                        )
+                    }
                 }
                 if (dayEntries.isEmpty()) {
                     Text("Brak wpisów tego dnia.", style = TendType.caption, color = Muted)
