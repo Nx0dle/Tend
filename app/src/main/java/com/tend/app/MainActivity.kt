@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
             val currentCarryover by viewModel.currentCarryover.collectAsStateWithLifecycle()
             val carryoverEnabled by viewModel.carryoverEnabled.collectAsStateWithLifecycle()
             val recurringBills by viewModel.recurringBills.collectAsStateWithLifecycle()
-            val pendingBillReminders by viewModel.pendingBillReminders.collectAsStateWithLifecycle()
+            val billProposals by viewModel.billProposals.collectAsStateWithLifecycle()
             TendTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = Porcelain) {
                     TendHomeScreen(
@@ -129,12 +129,13 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         openBillsTab = intent.getBooleanExtra(EXTRA_OPEN_BILLS, false),
+                        openBillId = intent.getStringExtra(EXTRA_OPEN_BILL_ID),
                         recurringBills = recurringBills,
-                        pendingBillReminders = pendingBillReminders,
+                        billProposals = billProposals,
                         onSaveRecurringBill = viewModel::saveRecurringBill,
                         onDeleteRecurringBill = viewModel::deleteRecurringBill,
-                        onApproveBillReminder = viewModel::approveBillReminder,
-                        onSkipBillReminder = viewModel::skipBillReminder,
+                        onApproveBill = viewModel::approveBill,
+                        onSkipBill = viewModel::skipBill,
                     )
                 }
             }
@@ -143,6 +144,8 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_OPEN_BILLS = "com.tend.app.OPEN_BILLS"
+        const val EXTRA_OPEN_BILL_ID = "com.tend.app.OPEN_BILL_ID"
+        const val EXTRA_OPEN_BILL_MONTH = "com.tend.app.OPEN_BILL_MONTH"
         private const val BILL_REMINDER_WORK = "tend_bill_reminders_daily"
         private const val BILL_REMINDER_STARTUP_WORK = "tend_bill_reminders_startup"
     }

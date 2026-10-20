@@ -10,14 +10,14 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import com.tend.app.MainActivity
-import com.tend.app.data.BillReminderOccurrence
+import com.tend.app.data.RecurringBill
 import java.text.NumberFormat
 import java.util.Locale
 
 class BillReminderNotifier(private val context: Context) {
     private val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-    fun notify(reminder: BillReminderOccurrence) {
+    fun notify(bill: RecurringBill, monthKey: String) {
         if (!canNotify()) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager.getNotificationChannel(CHANNEL_ID) == null) {
             manager.createNotificationChannel(
@@ -26,22 +26,24 @@ class BillReminderNotifier(private val context: Context) {
         }
         val openBills = Intent(context, MainActivity::class.java)
             .putExtra(MainActivity.EXTRA_OPEN_BILLS, true)
+            .putExtra(MainActivity.EXTRA_OPEN_BILL_ID, bill.id)
+            .putExtra(MainActivity.EXTRA_OPEN_BILL_MONTH, monthKey)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         val pendingIntent = PendingIntent.getActivity(
             context,
-            "${reminder.billId}:${reminder.monthKey}".hashCode(),
+            "bill:${bill.id}:${monthKey}".hashCode(),
             openBills,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val notification = Notification.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_notify_more)
-            .setContentTitle("Rachunek do zatwierdzenia")
-            .setContentText("${reminder.name} · ${formatMoney(reminder.amountCents)}")
+            .setContentTitle("🧾 ${bill.name} — ${formatMoney(bill.amountCents)}")
+            .setContentText("Opłacony? Zatwierdź, żeby wpisać go do budżetu.")
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .build()
         try {
-            manager.notify("${reminder.billId}:${reminder.monthKey}".hashCode(), notification)
+            manager.notify("bill:${bill.id}:${monthKey}".hashCode(), notification)
         } catch (_: SecurityException) {
             // Notification access may be revoked while this reminder is delivered.
         }

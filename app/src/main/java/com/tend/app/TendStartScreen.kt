@@ -71,6 +71,7 @@ internal fun StartTab(
     budgets: List<CategoryBudget>,
     monthlyBudget: MonthlyBudget?,
     carryoverCents: Long,
+    pendingBillsCents: Long,
     onAddEntry: (Long, String, String?) -> Unit,
     onAddCategory: (String) -> Unit,
     onEntryClick: (LedgerEntry) -> Unit,
@@ -96,7 +97,7 @@ internal fun StartTab(
         }
     }
 
-    val totals = computeBudgetTotals(entries, budgets, monthlyBudget, carryoverCents)
+    val totals = computeBudgetTotals(entries, budgets, monthlyBudget, carryoverCents, pendingBillsCents)
     val availableCents = totals.availableCents
     val allocatedCents = totals.allocatedCents
     val reserveCents = totals.reserveCents

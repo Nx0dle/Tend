@@ -11,9 +11,9 @@ import kotlinx.coroutines.CancellationException
 class BillReminderWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result = try {
         val repository = LedgerRepository(TendDatabase.get(applicationContext))
-        val dueReminders = repository.createDueBillReminders(LocalDate.now())
+        val dueBills = repository.refreshBillOccurrences(LocalDate.now())
         val notifier = BillReminderNotifier(applicationContext)
-        dueReminders.forEach(notifier::notify)
+        dueBills.forEach { notifier.notify(it.bill, it.monthKey) }
         Result.success()
     } catch (cancelled: CancellationException) {
         throw cancelled

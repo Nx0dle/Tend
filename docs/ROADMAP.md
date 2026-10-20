@@ -11,7 +11,7 @@ Repozytorium startuje od jednego bazowego snapshotu istniejącej aplikacji. Kole
 - Spójny język UI jest zdefiniowany tokenami w `TendTheme.kt` (odstępy, promienie, wysokości, ruch, role typograficzne i kolory semantyczne) i udokumentowany w `UI-GUIDELINES.md`. Ekrany Start i Budżet mają własne pliki, a wspólne elementy (hero, pasek alokacji, wiersze) są reużywane.
 - Zapisy mają wspólną obsługę błędów z komunikatem w nagłówku zamiast cichej porażki. Schematy Room są eksportowane do `app/schemas` jako punkt odniesienia dla migracji.
 - Ciche alerty po wykorzystaniu 80% i 100% limitu kategorii.
-- Rachunki cykliczne z przypomnieniem i ręcznym zatwierdzeniem wydatku.
+- Rachunki cykliczne z przypomnieniem i ręcznym zatwierdzeniem wydatku; propozycje generowane z definicji rachunku (bez snapshotu), rezerwują środki przed zatwierdzeniem, zaległe pomijane automatycznie.
 - Companion Wear OS: kafelek z sumą i paskami limitów oraz przewijalny ekran z pełną listą kategorii, lustrzany wobec Start. Dane trafiają z telefonu przez Wear Data Layer; zegarek jest tylko odbiorcą (moduły `core` i `wear`).
 - Aktualizuj `PROJECT-HANDBOOK.md`, `UI-GUIDELINES.md` (gdy dotyczy), README oraz ten plan przy zmianie założeń, funkcji, architektury lub statusu prac.
 
@@ -22,7 +22,7 @@ Repozytorium startuje od jednego bazowego snapshotu istniejącej aplikacji. Kole
 Gałąź: `fix/local-data-integrity`
 
 - Przejrzeć migracje Room i zasady usuwania oraz edycji wpisów.
-- Ustalić zachowanie przy zmianie miesiąca, spóźnionym przypomnieniu i edycji rachunku po utworzeniu przypomnienia.
+- ~~Ustalić zachowanie przy zmianie miesiąca, spóźnionym przypomnieniu i edycji rachunku po utworzeniu przypomnienia.~~ Zrobione w rethinkie rachunków: propozycje są czystym odnośnikiem do definicji (edycja rachunku aktualizuje propozycję), zaległe miesiące są auto-pomijane, powiadomienie jest maks. jedno na miesiąc po terminie.
 - ~~Uporządkować obsługę błędów zapisu tak, by ekran informował o nieudanej operacji.~~ Zrobione: `write` w ViewModelu ustawia komunikat w nagłówku.
 - ~~Wyeksportować schematy Room.~~ Zrobione: plugin `androidx.room`, katalog `app/schemas`. Pozostaje dodać testy migracji na bazie tych schematów.
 

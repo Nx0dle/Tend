@@ -4,7 +4,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import androidx.room.withTransaction
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.YearMonth
 
 class LedgerRepository(private val database: TendDatabase) {
@@ -31,7 +30,6 @@ class LedgerRepository(private val database: TendDatabase) {
     suspend fun deleteCategory(category: ExpenseCategory) = database.withTransaction {
         dao.clearCategoryFromEntries(category.id)
         dao.clearCategoryFromRecurringBills(category.id)
-        dao.clearCategoryFromPendingBillReminders(category.id)
         dao.deleteCategoryBudgets(category.id)
         dao.deleteCategoryBudgetAlerts(category.id)
         dao.deleteCategory(category)
@@ -92,49 +90,54 @@ class LedgerRepository(private val database: TendDatabase) {
 
     suspend fun saveRecurringBill(bill: RecurringBill) = dao.saveRecurringBill(bill)
 
-    suspend fun deleteRecurringBill(billId: String) = dao.deleteRecurringBill(billId)
+    suspend fun deleteRecurringBill(billId: String) = database.withTransaction {
+        dao.deleteBillRemindersForBill(billId)
+        dao.deleteRecurringBill(billId)
+    }
 
-    suspend fun createDueBillReminders(today: LocalDate): List<BillReminderOccurrence> = database.withTransaction {
+    /**
+     * Ensures the current month has one proposal per enabled bill, auto-skips stale
+     * pending proposals from earlier months, and returns the proposals that owe a
+     * single notification (pending, due or overdue, never notified this month).
+     */
+    suspend fun refreshBillOccurrences(today: LocalDate): List<DueBillReminder> = database.withTransaction {
         val monthKey = YearMonth.from(today).toString()
+        dao.skipStalePendingBillReminders(monthKey)
         buildList {
             for (bill in dao.getEnabledRecurringBills()) {
                 val dueDay = minOf(bill.dayOfMonth, today.lengthOfMonth())
+                dao.insertBillReminder(BillReminderOccurrence(billId = bill.id, monthKey = monthKey))
                 if (dueDay > today.dayOfMonth) continue
-                val dueAt = today.withDayOfMonth(dueDay)
-                    .atStartOfDay(ZoneId.systemDefault())
-                    .toInstant()
-                    .toEpochMilli()
-                val reminder = BillReminderOccurrence(
-                    billId = bill.id,
-                    monthKey = monthKey,
-                    name = bill.name,
-                    amountCents = bill.amountCents,
-                    categoryId = bill.categoryId,
-                    dueAtEpochMillis = dueAt,
-                )
-                if (dao.insertBillReminder(reminder) != -1L) add(reminder)
+                val reminder = dao.getBillReminder(bill.id, monthKey) ?: continue
+                if (reminder.status != BillReminderOccurrence.STATUS_PENDING) continue
+                if (reminder.notifiedAtEpochMillis != null) continue
+                dao.markBillReminderNotified(bill.id, monthKey, System.currentTimeMillis())
+                add(DueBillReminder(bill, monthKey))
             }
         }
     }
 
-    suspend fun approveBillReminder(billId: String, monthKey: String): LedgerEntry? = database.withTransaction {
-        val reminder = dao.getBillReminder(billId, monthKey)
+    /** Writes the expense today with the corrected amount; the entry is idempotent per bill and month. */
+    suspend fun approveBill(billId: String, amountCents: Long?): LedgerEntry? = database.withTransaction {
+        val bill = dao.getRecurringBill(billId) ?: return@withTransaction null
+        val monthKey = YearMonth.now().toString()
+        dao.getBillReminder(billId, monthKey)
             ?.takeIf { it.status == BillReminderOccurrence.STATUS_PENDING }
             ?: return@withTransaction null
         val entry = LedgerEntry(
-            id = "bill:${reminder.billId}:${reminder.monthKey}",
-            amountCents = reminder.amountCents,
-            categoryId = reminder.categoryId,
+            id = "bill:${billId}:${monthKey}",
+            amountCents = amountCents ?: bill.amountCents,
+            categoryId = bill.categoryId,
             type = LedgerEntry.TYPE_EXPENSE,
-            occurredAtEpochMillis = reminder.dueAtEpochMillis,
-            monthKey = reminder.monthKey,
+            occurredAtEpochMillis = System.currentTimeMillis(),
+            monthKey = monthKey,
         )
         dao.insert(entry)
         dao.updateBillReminderStatus(billId, monthKey, BillReminderOccurrence.STATUS_APPROVED)
         entry
     }
 
-    suspend fun skipBillReminder(billId: String, monthKey: String) {
-        dao.updateBillReminderStatus(billId, monthKey, BillReminderOccurrence.STATUS_SKIPPED)
+    suspend fun skipBill(billId: String) {
+        dao.updateBillReminderStatus(billId, YearMonth.now().toString(), BillReminderOccurrence.STATUS_SKIPPED)
     }
 }

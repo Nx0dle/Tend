@@ -23,7 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
-import com.tend.app.data.BillReminderOccurrence
+import com.tend.app.data.BillProposal
 import com.tend.app.data.CategoryBudget
 import com.tend.app.data.ExpenseCategory
 import com.tend.app.data.LedgerEntry
@@ -59,11 +59,11 @@ internal fun BudgetTab(
     onRenameCategory: (ExpenseCategory, String) -> Unit,
     onDeleteCategory: (ExpenseCategory) -> Unit,
     recurringBills: List<RecurringBill>,
-    pendingBillReminders: List<BillReminderOccurrence>,
+    proposals: List<BillProposal>,
     onSaveRecurringBill: (String?, String, Long, String?, Int) -> Unit,
     onDeleteRecurringBill: (RecurringBill) -> Unit,
-    onApproveBillReminder: (BillReminderOccurrence) -> Unit,
-    onSkipBillReminder: (BillReminderOccurrence) -> Unit,
+    onApproveBill: (RecurringBill) -> Unit,
+    onSkipBill: (BillProposal) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val monthLabel = polishMonthName(month)
@@ -80,7 +80,7 @@ internal fun BudgetTab(
     var editingRecurringBill by remember { mutableStateOf<RecurringBill?>(null) }
     var deletingRecurringBill by remember { mutableStateOf<RecurringBill?>(null) }
 
-    val totals = computeBudgetTotals(entries, budgets, monthlyBudget, carryoverCents)
+    val totals = computeBudgetTotals(entries, budgets, monthlyBudget, carryoverCents, pendingBillsCents(recurringBills, proposals, month))
     val availableCents = totals.availableCents
     val allocatedCents = totals.allocatedCents
     val hasBudgetPool = totals.hasPool
@@ -172,7 +172,7 @@ internal fun BudgetTab(
             Spacer(Modifier.height(TendSpace.xxlarge))
             RecurringBillsSection(
                 bills = recurringBills,
-                pendingReminders = pendingBillReminders,
+                proposals = proposals,
                 categories = categories,
                 onAddBill = {
                     editingRecurringBill = null
@@ -183,8 +183,8 @@ internal fun BudgetTab(
                     showRecurringBillEditor = true
                 },
                 onDeleteBill = { deletingRecurringBill = it },
-                onApproveReminder = onApproveBillReminder,
-                onSkipReminder = onSkipBillReminder,
+                onApproveBill = onApproveBill,
+                onSkipBill = onSkipBill,
             )
         }
         Spacer(Modifier.height(TendSpace.xxlarge))
@@ -338,7 +338,7 @@ internal fun BudgetTab(
         TendDialog(
             onDismissRequest = { deletingRecurringBill = null },
             title = { Text("Usunąć rachunek cykliczny?") },
-            text = { Text("Wyłączyć przyszłe przypomnienia dla „${bill.name}”?") },
+            text = { Text("Usunięcie kasuje też niezatwierdzone propozycje tego rachunku.") },
             confirmButton = {
                 TextButton(onClick = { onDeleteRecurringBill(bill); deletingRecurringBill = null }) { Text("Usuń") }
             },
