@@ -38,6 +38,12 @@ docs/pr-template
 - Testy, jeśli dotyczyły zmiany; przy zmianach UI — instalacja na urządzeniu: `./gradlew :app:installDebug` i ręczny podgląd.
 - Instalacja przez update nigdy nie może wymusić reinstalacji z utratą danych (uwaga na zmianę podpisu/keystore).
 
+## Urządzenia użytkownika
+
+- Na podłączonym urządzeniu (telefon, zegarek) agent **ma prawo wykonywać wyłącznie instalację apk z tego projektu** (`./gradlew :app:installDebug` / `:wear:installDebug`).
+- Wszystko inne przez adb — uruchamianie/stopping aplikacji, `pull/push`, backup, odinstalowanie, logcat, ustawienia, testy na urządzeniu — **tylko za jawną zgodą użytkownika**, zanim komenda pójdzie.
+- Zabronione bez pytania: cokolwiek naruszające dane użytkownika (uninstall, clear, wipe) — nawet gdy wydaje się niezbędne (np. konflikt podpisów): najpierw opisz sytuację i zaproponuj plan, czekaj na akceptację.
+
 ## Template opisu PR
 
 Jeden spójny szablon dla każdego PR (kolejność sekcji stała, tytuł PR = conventional commit):
