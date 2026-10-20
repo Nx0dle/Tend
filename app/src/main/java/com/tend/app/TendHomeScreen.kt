@@ -279,9 +279,9 @@ internal fun TendHomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(TendSpace.small),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                BottomNavItem("Start", selectedTab == 0, Modifier.weight(1f)) { selectedTab = 0 }
+                BottomNavItem("Przegląd", selectedTab == 0, Modifier.weight(1f)) { selectedTab = 0 }
                 BottomNavItem("Kalendarz", selectedTab == 1, Modifier.weight(1f)) { selectedTab = 1 }
-                BottomNavItem("Budżet", selectedTab == 2, Modifier.weight(1f)) { selectedTab = 2 }
+                BottomNavItem("Plan", selectedTab == 2, Modifier.weight(1f)) { selectedTab = 2 }
             }
         }
     }
