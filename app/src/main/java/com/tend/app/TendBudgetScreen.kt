@@ -21,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import com.tend.app.data.BillReminderOccurrence
 import com.tend.app.data.CategoryBudget
@@ -79,11 +80,11 @@ internal fun BudgetTab(
     var editingRecurringBill by remember { mutableStateOf<RecurringBill?>(null) }
     var deletingRecurringBill by remember { mutableStateOf<RecurringBill?>(null) }
 
-    val incomeCents = entries.asSequence().filter { it.type == LedgerEntry.TYPE_INCOME }.sumOf { it.amountCents }
-    val availableCents = (monthlyBudget?.plannedCents ?: 0L) + incomeCents + carryoverCents
-    val allocatedCents = budgets.sumOf { it.amountCents }
-    val hasBudgetPool = monthlyBudget != null || incomeCents != 0L || carryoverCents != 0L
-    val reserveCents = availableCents - allocatedCents
+    val totals = computeBudgetTotals(entries, budgets, monthlyBudget, carryoverCents)
+    val availableCents = totals.availableCents
+    val allocatedCents = totals.allocatedCents
+    val hasBudgetPool = totals.hasPool
+    val reserveCents = totals.reserveCents
 
     Column(
         modifier = modifier
@@ -123,8 +124,13 @@ internal fun BudgetTab(
             Spacer(Modifier.height(TendSpace.large))
             HeroMetrics(
                 listOf(
-                    "LIMITY" to formatMoney(allocatedCents),
-                    "REZERWA" to if (!hasBudgetPool && allocatedCents == 0L) "—" else formatMoney(reserveCents),
+                    HeroMetric("LIMITY", formatMoney(allocatedCents)),
+                    HeroMetric(
+                        "REZERWA",
+                        if (!hasBudgetPool && allocatedCents == 0L) "—" else formatMoney(reserveCents),
+                        valueColor = if (reserveCents < 0L) Danger else Color.White,
+                        alert = if (reserveCents < 0L) "Ostrzeżenie" else null,
+                    ),
                 ),
             )
         }

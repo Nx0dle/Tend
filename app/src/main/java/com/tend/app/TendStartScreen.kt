@@ -96,12 +96,11 @@ internal fun StartTab(
         }
     }
 
-    val spentCents = entries.asSequence().filter { it.type == LedgerEntry.TYPE_EXPENSE }.sumOf { it.amountCents }
-    val incomeCents = entries.asSequence().filter { it.type == LedgerEntry.TYPE_INCOME }.sumOf { it.amountCents }
-    val availableCents = (monthlyBudget?.plannedCents ?: 0L) + incomeCents + carryoverCents
-    val allocatedCents = budgets.sumOf { it.amountCents }
-    val hasBudgetPool = monthlyBudget != null || incomeCents != 0L || carryoverCents != 0L
-    val reserveCents = availableCents - allocatedCents
+    val totals = computeBudgetTotals(entries, budgets, monthlyBudget, carryoverCents)
+    val availableCents = totals.availableCents
+    val allocatedCents = totals.allocatedCents
+    val reserveCents = totals.reserveCents
+    val hasBudgetPool = totals.hasPool
     val today = LocalDate.now()
     val todayExpenses = entries.filter {
         it.type == LedgerEntry.TYPE_EXPENSE &&
@@ -129,15 +128,20 @@ internal fun StartTab(
     ) {
         Spacer(Modifier.height(TendSpace.small))
         TendHeroCard(eyebrow = "WYDATKI W MIESIĄCU") {
-            HeroAmount(formatMoney(spentCents))
+            HeroAmount(formatMoney(totals.spentCents))
             Spacer(Modifier.height(TendSpace.large))
             AllocationBar(availableCents = availableCents, allocatedCents = allocatedCents, reserveCents = reserveCents)
             Spacer(Modifier.height(TendSpace.large))
             HeroMetrics(
                 listOf(
-                    "PULA" to if (hasBudgetPool) formatMoney(availableCents) else "Nieustawiona",
-                    "LIMITY" to formatMoney(allocatedCents),
-                    "REZERWA" to if (!hasBudgetPool && allocatedCents == 0L) "—" else formatMoney(reserveCents),
+                    HeroMetric("PULA", if (hasBudgetPool) formatMoney(availableCents) else "Nieustawiona"),
+                    HeroMetric("LIMITY", formatMoney(allocatedCents)),
+                    HeroMetric(
+                        "REZERWA",
+                        if (!hasBudgetPool && allocatedCents == 0L) "—" else formatMoney(reserveCents),
+                        valueColor = if (reserveCents < 0L) Danger else Color.White,
+                        alert = if (reserveCents < 0L) "Ostrzeżenie" else null,
+                    ),
                 ),
             )
         }

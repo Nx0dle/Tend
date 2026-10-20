@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.tend.app.computeBudgetTotals
 import com.tend.app.data.LedgerEntry
 import com.tend.app.data.ExpenseCategory
 import com.tend.app.data.CategoryBudget
@@ -287,10 +288,7 @@ class TendViewModel(application: Application) : AndroidViewModel(application) {
         monthlyBudget: MonthlyBudget?,
         carryoverCents: Long,
     ): WatchSnapshot {
-        val spentCents = entries.asSequence().filter { it.type == LedgerEntry.TYPE_EXPENSE }.sumOf { it.amountCents }
-        val incomeCents = entries.asSequence().filter { it.type == LedgerEntry.TYPE_INCOME }.sumOf { it.amountCents }
-        val availableCents = (monthlyBudget?.plannedCents ?: 0L) + incomeCents + carryoverCents
-        val allocatedCents = budgets.sumOf { it.amountCents }
+        val totals = computeBudgetTotals(entries, budgets, monthlyBudget, carryoverCents)
         val today = LocalDate.now()
         val todaySpentCents = entries.asSequence()
             .filter {
@@ -311,11 +309,11 @@ class TendViewModel(application: Application) : AndroidViewModel(application) {
         }
         return WatchSnapshot(
             monthKey = YearMonth.now().toString(),
-            totalSpentCents = spentCents,
-            availableCents = availableCents,
-            allocatedCents = allocatedCents,
-            reserveCents = availableCents - allocatedCents,
-            hasPool = monthlyBudget != null || incomeCents != 0L || carryoverCents != 0L,
+            totalSpentCents = totals.spentCents,
+            availableCents = totals.availableCents,
+            allocatedCents = totals.allocatedCents,
+            reserveCents = totals.reserveCents,
+            hasPool = totals.hasPool,
             todaySpentCents = todaySpentCents,
             generatedAtEpochMillis = System.currentTimeMillis(),
             categories = watchCategories,

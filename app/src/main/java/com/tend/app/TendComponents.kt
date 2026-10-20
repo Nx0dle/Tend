@@ -307,20 +307,37 @@ internal fun AllocationBar(
 }
 
 @Composable
-internal fun HeroMetrics(items: List<Pair<String, String>>, modifier: Modifier = Modifier) {
+internal fun HeroMetrics(items: List<HeroMetric>, modifier: Modifier = Modifier) {
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(TendSpace.small)) {
-        items.forEach { (label, value) ->
-            SummaryMetric(label, value, Modifier.weight(1f))
+        items.forEach { metric ->
+            SummaryMetric(metric.label, metric.value, metric.alert, Modifier.weight(1f), metric.valueColor)
         }
     }
 }
 
+internal data class HeroMetric(
+    val label: String,
+    val value: String,
+    val valueColor: Color = Color.White,
+    val alert: String? = null,
+)
+
 @Composable
-internal fun SummaryMetric(label: String, value: String, modifier: Modifier = Modifier) {
+internal fun SummaryMetric(
+    label: String,
+    value: String,
+    alert: String? = null,
+    modifier: Modifier = Modifier,
+    valueColor: Color = Color.White,
+) {
     Column(modifier) {
         Text(label, style = TendType.caption, color = OnHeroMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(TendSpace.xsmall))
-        Text(value, style = TendType.metricValue, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, style = TendType.metricValue, color = valueColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        alert?.let {
+            Spacer(Modifier.height(TendSpace.xsmall))
+            TendBadge(it, color = Danger, containerColor = Danger.copy(alpha = 0.28f))
+        }
     }
 }
 

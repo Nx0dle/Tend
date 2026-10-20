@@ -34,7 +34,7 @@ Dolna nawigacja prowadzi do trzech odrębnych zadań. Gest poziomy pozwala przec
 - Zmiany planu grupuje akcja „Opcje planu”: ustawienie/zmiana/usunięcie puli, opcjonalne przenoszenie salda i kopiowanie limitów kategorii z poprzedniego miesiąca.
 - Można skopiować limity kategorii z poprzedniego miesiąca tylko wtedy, gdy docelowy miesiąc nie ma jeszcze limitów. Kopiowanie nie przenosi puli: pula jest nowym zasileniem środków dla konkretnego miesiąca.
 - Budżet zapamiętuje swój wybrany miesiąc oddzielnie od Kalendarza. To pozwala wrócić do przyszłego planu bez zmiany okresu dziennika.
-- Rezerwa jest resztą po odjęciu sumy limitów kategorii od dostępnej puli; zmniejsza się po przypisaniu limitu i może być ujemna przy nadmiernej alokacji.
+- Rezerwa jest żywą resztą dostępnej puli: każdy wydatek konsumuje dokładnie jedno źródło. Kategoria zjada najpierw swój limit, nadwyżka ponad limit i wydatki bez kategorii schodzą wprost z rezerwy, która może stać się ujemna (czerwona kwota, alert „Ostrzeżenie”).
 
 ### Nawigacja miesiąca
 
