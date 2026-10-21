@@ -7,10 +7,11 @@ import androidx.lifecycle.viewModelScope
 import com.tend.app.computeBudgetTotals
 import com.tend.app.data.LedgerEntry
 import com.tend.app.data.ExpenseCategory
+import com.tend.app.data.BillProposal
+import com.tend.app.data.BillReminderOccurrence
 import com.tend.app.data.CategoryBudget
 import com.tend.app.data.MonthlyBudget
 import com.tend.app.data.RecurringBill
-import com.tend.app.data.BillReminderOccurrence
 import com.tend.app.data.LedgerRepository
 import com.tend.app.data.TendDatabase
 import com.tend.app.notifications.BudgetAlertNotifier
@@ -76,23 +77,52 @@ class TendViewModel(application: Application) : AndroidViewModel(application) {
         initialValue = emptyList(),
     )
 
-    val pendingBillReminders = repository.observePendingBillReminders().stateIn(
+    /** Bills joined with their month proposals, ordered by due day. */
+    val billProposals = combine(
+        repository.observeRecurringBills(),
+        repository.observePendingBillReminders(),
+    ) { bills, occurrences ->
+        occurrences.mapNotNull { occurrence ->
+            bills.firstOrNull { it.id == occurrence.billId }?.let { bill ->
+                BillProposal(bill = bill, monthKey = occurrence.monthKey, status = occurrence.status)
+            }
+        }.sortedWith(compareBy({ it.dueDate(YearMonth.from(LocalDate.now())).dayOfMonth }, { it.bill.name }))
+    }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList(),
     )
 
+    /** Planned amount still reserved by pending proposals of the current month. */
+    private val currentPendingBillsCents = combine(
+        _currentMonth,
+        repository.observeRecurringBills(),
+        repository.observePendingBillReminders(),
+    ) { month, bills, occurrences ->
+        val amountsById = bills.associateBy({ it.id }, { it.amountCents })
+        occurrences.asSequence()
+            .filter { it.monthKey == month.toString() && it.status == BillReminderOccurrence.STATUS_PENDING }
+            .sumOf { amountsById[it.billId] ?: 0L }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = 0L,
+    )
+
     init {
         // Mirror the Start tab to the paired watch whenever current-month data changes.
+        val watchInputs = combine(
+            currentEntries,
+            categories,
+            currentBudgets,
+            currentMonthlyBudget,
+            currentCarryover,
+        ) { entries, categories, budgets, monthlyBudget, carryover ->
+            WatchInputs(entries, categories, budgets, monthlyBudget, carryover)
+        }
         viewModelScope.launch {
-            combine(
-                currentEntries,
-                categories,
-                currentBudgets,
-                currentMonthlyBudget,
-                currentCarryover,
-            ) { entries, categories, budgets, monthlyBudget, carryover ->
-                buildWatchSnapshot(entries, categories, budgets, monthlyBudget, carryover)
+            combine(watchInputs, currentPendingBillsCents) { inputs, pendingBills ->
+                buildWatchSnapshot(inputs, pendingBills)
             }.collect { wearSync.push(it) }
         }
     }
@@ -229,16 +259,16 @@ class TendViewModel(application: Application) : AndroidViewModel(application) {
         write { repository.deleteRecurringBill(bill.id) }
     }
 
-    fun approveBillReminder(reminder: BillReminderOccurrence) {
+    fun approveBill(billId: String, amountCents: Long?) {
         write {
-            repository.approveBillReminder(reminder.billId, reminder.monthKey)?.let { entry ->
+            repository.approveBill(billId, amountCents)?.let { entry ->
                 notifyBudgetAlerts(entry.monthKey)
             }
         }
     }
 
-    fun skipBillReminder(reminder: BillReminderOccurrence) {
-        write { repository.skipBillReminder(reminder.billId, reminder.monthKey) }
+    fun skipBill(billId: String) {
+        write { repository.skipBill(billId) }
     }
 
     /** A zero or negative pool clears the pool row. */
@@ -277,33 +307,44 @@ class TendViewModel(application: Application) : AndroidViewModel(application) {
         repository.collectBudgetAlerts(monthKey).forEach(budgetAlertNotifier::notify)
     }
 
+    private data class WatchInputs(
+        val entries: List<LedgerEntry>,
+        val categories: List<ExpenseCategory>,
+        val budgets: List<CategoryBudget>,
+        val monthlyBudget: MonthlyBudget?,
+        val carryoverCents: Long,
+    )
+
     /**
      * Builds the same current-month view the Start tab shows, so the watch mirrors phone values:
      * total spent, the pool split, and per-category spent/limit.
      */
     private fun buildWatchSnapshot(
-        entries: List<LedgerEntry>,
-        categories: List<ExpenseCategory>,
-        budgets: List<CategoryBudget>,
-        monthlyBudget: MonthlyBudget?,
-        carryoverCents: Long,
+        inputs: WatchInputs,
+        pendingBillsCents: Long,
     ): WatchSnapshot {
-        val totals = computeBudgetTotals(entries, budgets, monthlyBudget, carryoverCents)
+        val totals = computeBudgetTotals(
+            inputs.entries,
+            inputs.budgets,
+            inputs.monthlyBudget,
+            inputs.carryoverCents,
+            pendingBillsCents,
+        )
         val today = LocalDate.now()
-        val todaySpentCents = entries.asSequence()
+        val todaySpentCents = inputs.entries.asSequence()
             .filter {
                 it.type == LedgerEntry.TYPE_EXPENSE &&
                     Instant.ofEpochMilli(it.occurredAtEpochMillis).atZone(ZoneId.systemDefault()).toLocalDate() == today
             }
             .sumOf { it.amountCents }
-        val watchCategories = categories.map { category ->
+        val watchCategories = inputs.categories.map { category ->
             WatchCategory(
                 id = category.id,
                 name = category.name,
-                spentCents = entries.asSequence()
+                spentCents = inputs.entries.asSequence()
                     .filter { it.categoryId == category.id && it.type == LedgerEntry.TYPE_EXPENSE }
                     .sumOf { it.amountCents },
-                limitCents = budgets.firstOrNull { it.categoryId == category.id }?.amountCents ?: 0L,
+                limitCents = inputs.budgets.firstOrNull { it.categoryId == category.id }?.amountCents ?: 0L,
                 colorArgb = TendPalette.colorFor(category.id),
             )
         }

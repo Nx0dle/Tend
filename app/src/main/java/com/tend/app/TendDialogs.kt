@@ -20,8 +20,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LocalTextStyle
@@ -50,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.tend.app.data.BillProposal
 import com.tend.app.data.BillReminderOccurrence
 import com.tend.app.data.ExpenseCategory
 import com.tend.app.data.LedgerEntry
@@ -171,70 +170,126 @@ internal fun CategoryEditorDialog(
 @Composable
 internal fun RecurringBillsSection(
     bills: List<RecurringBill>,
-    pendingReminders: List<BillReminderOccurrence>,
+    proposals: List<BillProposal>,
     categories: List<ExpenseCategory>,
     onAddBill: () -> Unit,
     onEditBill: (RecurringBill) -> Unit,
     onDeleteBill: (RecurringBill) -> Unit,
-    onApproveReminder: (BillReminderOccurrence) -> Unit,
-    onSkipReminder: (BillReminderOccurrence) -> Unit,
+    onApproveBill: (RecurringBill) -> Unit,
+    onSkipBill: (BillProposal) -> Unit,
 ) {
     TendSectionHeader(
         title = "Rachunki cykliczne",
         badge = {
-            if (pendingReminders.isNotEmpty()) {
-                TendBadge("${pendingReminders.size} do zatwierdzenia", color = Forest, containerColor = Sage)
+            val pendingCount = proposals.count { it.status == BillReminderOccurrence.STATUS_PENDING }
+            if (pendingCount > 0) {
+                TendBadge("$pendingCount do zatwierdzenia", color = Forest, containerColor = Sage)
             }
         },
         action = { TextButton(onClick = onAddBill) { Text("+ Dodaj", maxLines = 1, softWrap = false) } },
     )
     Spacer(Modifier.height(TendSpace.small))
 
-    if (pendingReminders.isNotEmpty()) {
-        pendingReminders.forEach { reminder ->
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(vertical = TendSpace.xsmall),
-                shape = RoundedCornerShape(TendRadius.control),
-                colors = CardDefaults.cardColors(containerColor = Sage),
-            ) {
-                Column(Modifier.padding(TendSpace.large)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text(reminder.name, modifier = Modifier.weight(1f), color = Ink, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        TendBadge("Wymaga zgody", color = Forest, containerColor = Color.White)
-                    }
-                    val categoryName = categories.firstOrNull { it.id == reminder.categoryId }?.name
-                    Text(
-                        listOfNotNull(formatMoney(reminder.amountCents), formatEntryDate(reminder.dueAtEpochMillis), categoryName).joinToString(" · "),
-                        style = TendType.caption,
-                        color = Muted,
-                    )
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = { onSkipReminder(reminder) }) { Text("Pomiń") }
-                        TextButton(onClick = { onApproveReminder(reminder) }) { Text("Dodaj wydatek") }
-                    }
-                }
-            }
-        }
-        Spacer(Modifier.height(TendSpace.medium))
-    }
-
     if (bills.isEmpty()) {
         Text("Brak rachunków cyklicznych.", style = TendType.micro, color = Muted)
     } else {
         bills.forEach { bill ->
+            val proposal = proposals.firstOrNull { it.bill.id == bill.id }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = TendSpace.small),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(bill.name, style = TendType.rowTitle, color = Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("${formatMoney(bill.amountCents)} · co miesiąc, dzień ${bill.dayOfMonth}", style = TendType.caption, color = Muted)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            bill.name,
+                            modifier = Modifier.weight(1f, fill = false),
+                            style = TendType.rowTitle,
+                            color = Ink,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        when (proposal?.status) {
+                            BillReminderOccurrence.STATUS_PENDING -> {
+                                Spacer(Modifier.width(TendSpace.small))
+                                TendBadge("Do zatwierdzenia", color = NoticeText, containerColor = Gold.copy(alpha = 0.18f))
+                            }
+                            BillReminderOccurrence.STATUS_APPROVED -> {
+                                Spacer(Modifier.width(TendSpace.small))
+                                TendBadge("Zatwierdzono", color = Forest, containerColor = Sage)
+                            }
+                            BillReminderOccurrence.STATUS_SKIPPED -> {
+                                Spacer(Modifier.width(TendSpace.small))
+                                TendBadge("Pominięto", color = Muted, containerColor = Line.copy(alpha = 0.6f))
+                            }
+                        }
+                    }
+                    Text(
+                        "${formatMoney(bill.amountCents)} szacunkowo · co miesiąc, dzień ${bill.dayOfMonth}" +
+                            (categories.firstOrNull { it.id == bill.categoryId }?.name?.let { " · $it" } ?: ""),
+                        style = TendType.caption,
+                        color = Muted,
+                    )
+                    if (proposal?.status == BillReminderOccurrence.STATUS_PENDING) {
+                        Row {
+                            TextButton(onClick = { onSkipBill(proposal) }) { Text("Pomiń") }
+                            TextButton(onClick = { onApproveBill(bill) }) { Text("Zatwierdź") }
+                        }
+                    }
                 }
                 TextButton(onClick = { onEditBill(bill) }) { Text("Edytuj") }
                 TextButton(onClick = { onDeleteBill(bill) }) { Text("Usuń", color = Danger) }
             }
         }
     }
+}
+
+/** Approval sheet: correct the estimated amount, then write today's expense — or skip the month. */
+@Composable
+internal fun BillApprovalDialog(
+    bill: RecurringBill,
+    onDismiss: () -> Unit,
+    onApprove: (Long) -> Unit,
+    onSkip: () -> Unit,
+) {
+    var amount by remember(bill.id) {
+        mutableStateOf(String.format(Locale.forLanguageTag("pl-PL"), "%.2f", bill.amountCents / 100.0))
+    }
+    TendDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Zatwierdź rachunek") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(TendSpace.small)) {
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { value -> amount = value.filter { it.isDigit() || it == ',' || it == '.' } },
+                    label = { Text("Kwota") },
+                    suffix = { Text("zł") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    shape = RoundedCornerShape(TendRadius.control),
+                    colors = tendFieldColors(),
+                    singleLine = true,
+                )
+                Text(
+                    "„${bill.name}” trafi do księgi jako wydatek na dziś.",
+                    style = TendType.caption,
+                )
+            }
+        },
+        confirmButton = {
+            val cents = parseAmountCents(amount)
+            TextButton(
+                onClick = { if (cents != null) onApprove(cents) },
+                enabled = cents != null && cents > 0L,
+            ) { Text("Zatwierdź") }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onSkip) { Text("Pomiń", color = Danger) }
+                TextButton(onClick = onDismiss) { Text("Anuluj") }
+            }
+        },
+    )
 }
 
 @Composable
@@ -268,7 +323,7 @@ internal fun RecurringBillEditorDialog(
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { value -> amount = value.filter { it.isDigit() || it == ',' || it == '.' } },
-                    label = { Text("Kwota") },
+                    label = { Text("Kwota szacowana") },
                     suffix = { Text("zł") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     shape = RoundedCornerShape(TendRadius.control),

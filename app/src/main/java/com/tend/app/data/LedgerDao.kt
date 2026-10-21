@@ -46,9 +46,6 @@ interface LedgerDao {
     @Query("UPDATE recurring_bills SET categoryId = NULL WHERE categoryId = :categoryId")
     suspend fun clearCategoryFromRecurringBills(categoryId: String)
 
-    @Query("UPDATE bill_reminders SET categoryId = NULL WHERE categoryId = :categoryId AND status = 'pending'")
-    suspend fun clearCategoryFromPendingBillReminders(categoryId: String)
-
     @Query("SELECT * FROM category_budgets WHERE monthKey = :monthKey")
     fun observeBudgets(monthKey: String): Flow<List<CategoryBudget>>
 
@@ -109,7 +106,13 @@ interface LedgerDao {
     @Query("DELETE FROM recurring_bills WHERE id = :billId")
     suspend fun deleteRecurringBill(billId: String)
 
-    @Query("SELECT * FROM bill_reminders WHERE status = 'pending' ORDER BY monthKey DESC, name COLLATE NOCASE")
+    @Query("SELECT * FROM recurring_bills WHERE id = :billId LIMIT 1")
+    suspend fun getRecurringBill(billId: String): RecurringBill?
+
+    @Query("DELETE FROM bill_reminders WHERE billId = :billId")
+    suspend fun deleteBillRemindersForBill(billId: String)
+
+    @Query("SELECT * FROM bill_reminders WHERE status = 'pending' ORDER BY monthKey DESC")
     fun observePendingBillReminders(): Flow<List<BillReminderOccurrence>>
 
     @Query("SELECT * FROM bill_reminders WHERE billId = :billId AND monthKey = :monthKey LIMIT 1")
@@ -120,4 +123,10 @@ interface LedgerDao {
 
     @Query("UPDATE bill_reminders SET status = :status WHERE billId = :billId AND monthKey = :monthKey AND status = 'pending'")
     suspend fun updateBillReminderStatus(billId: String, monthKey: String, status: String)
+
+    @Query("UPDATE bill_reminders SET status = 'skipped' WHERE status = 'pending' AND monthKey < :monthKey")
+    suspend fun skipStalePendingBillReminders(monthKey: String)
+
+    @Query("UPDATE bill_reminders SET notifiedAtEpochMillis = :atEpochMillis WHERE billId = :billId AND monthKey = :monthKey")
+    suspend fun markBillReminderNotified(billId: String, monthKey: String, atEpochMillis: Long)
 }

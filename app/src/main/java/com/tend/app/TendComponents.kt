@@ -44,6 +44,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tend.app.data.BillProposal
 import com.tend.app.data.ExpenseCategory
 import com.tend.app.data.LedgerEntry
 import com.tend.shared.TendPalette
@@ -80,6 +81,7 @@ internal fun CalendarContent(
     entries: List<LedgerEntry>,
     categories: List<ExpenseCategory>,
     month: YearMonth,
+    pendingProposals: List<BillProposal>,
     onEntryClick: (LedgerEntry) -> Unit,
 ) {
     val today = LocalDate.now()
@@ -87,6 +89,9 @@ internal fun CalendarContent(
         mutableStateOf(if (month == YearMonth.from(today)) today else month.atDay(1))
     }
     val zone = remember { ZoneId.systemDefault() }
+    val proposalDates = remember(pendingProposals, month) {
+        pendingProposals.associateBy { it.dueDate(month) }
+    }
     val expenseTotals = remember(entries, zone) {
         entries.asSequence()
             .filter { it.type == LedgerEntry.TYPE_EXPENSE }
@@ -133,19 +138,34 @@ internal fun CalendarContent(
                                 color = if (isSelected) DeepForest else Color.Transparent,
                                 border = if (date == today && !isSelected) BorderStroke(1.dp, Gold.copy(alpha = 0.8f)) else null,
                             ) {
-                                Column(
-                                    modifier = Modifier.fillMaxSize().padding(vertical = TendSpace.xsmall),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center,
-                                ) {
-                                    Text("$day", color = if (isSelected) Color.White else Ink, fontSize = 14.sp, fontWeight = if (isSelected || date == today) FontWeight.Bold else FontWeight.Medium)
-                                    Spacer(Modifier.height(TendSpace.xsmall))
-                                    Box(
-                                        Modifier.size(if (spent > 0L) 5.dp else 3.dp)
-                                            .clip(CircleShape)
-                                            .background(if (spent == 0L) Color.Transparent else if (isSelected) Gold else Forest.copy(alpha = markerAlpha)),
-                                    )
+                            Column(
+                                modifier = Modifier.fillMaxSize().padding(vertical = TendSpace.xsmall),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                            ) {
+                                Text("$day", color = if (isSelected) Color.White else Ink, fontSize = 14.sp, fontWeight = if (isSelected || date == today) FontWeight.Bold else FontWeight.Medium)
+                                Spacer(Modifier.height(TendSpace.xsmall))
+                                val hasProposal = proposalDates.containsKey(date)
+                                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    if (spent > 0L) {
+                                        Box(
+                                            Modifier.size(5.dp)
+                                                .clip(CircleShape)
+                                                .background(if (isSelected) Gold else Forest.copy(alpha = markerAlpha)),
+                                        )
+                                    }
+                                    if (hasProposal) {
+                                        Box(
+                                            Modifier.size(5.dp)
+                                                .clip(CircleShape)
+                                                .background(Gold),
+                                        )
+                                    }
                                 }
+                                if (spent == 0L && !hasProposal) {
+                                    Spacer(Modifier.height(3.dp))
+                                }
+                            }
                             }
                         } else {
                             Spacer(Modifier.weight(1f).height(52.dp))
@@ -164,6 +184,7 @@ internal fun CalendarContent(
             val dayExpenses = dayEntries.filter { it.type == LedgerEntry.TYPE_EXPENSE }.sumOf { it.amountCents }
             val dayIncome = dayEntries.filter { it.type == LedgerEntry.TYPE_INCOME }.sumOf { it.amountCents }
             val dayTotal = dayIncome - dayExpenses
+            val proposalDate = proposalDates[date]
             Column(
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(TendRadius.card)).background(Color.White).padding(TendSpace.large),
                 verticalArrangement = Arrangement.spacedBy(TendSpace.small),
@@ -184,15 +205,40 @@ internal fun CalendarContent(
                         )
                     }
                 }
-                if (dayEntries.isEmpty()) {
+                if (dayEntries.isEmpty() && proposalDate == null) {
                     Text("Brak wpisów tego dnia.", style = TendType.caption, color = Muted)
                 } else {
-                    dayEntries.forEach { entry ->
-                        LedgerEntryRow(
-                            entry = entry,
-                            categoryName = categories.firstOrNull { it.id == entry.categoryId }?.name,
-                            onClick = { onEntryClick(entry) },
-                        )
+                    if (dayEntries.isEmpty()) {
+                        Text("Brak wpisów tego dnia.", style = TendType.caption, color = Muted)
+                    } else {
+                        dayEntries.forEach { entry ->
+                            LedgerEntryRow(
+                                entry = entry,
+                                categoryName = categories.firstOrNull { it.id == entry.categoryId }?.name,
+                                onClick = { onEntryClick(entry) },
+                            )
+                        }
+                    }
+                    proposalDate?.let { proposal ->
+                        Spacer(Modifier.height(TendSpace.xsmall))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = TendSpace.small),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(proposal.bill.name, style = TendType.rowTitle, color = Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Spacer(Modifier.width(TendSpace.small))
+                                    TendBadge("Planowany", color = NoticeText, containerColor = Gold.copy(alpha = 0.18f))
+                                }
+                                Text(
+                                    "${formatMoney(proposal.bill.amountCents)} szacunkowo · dzień ${proposal.bill.dayOfMonth}",
+                                    style = TendType.caption,
+                                    color = Muted,
+                                )
+                            }
+                            Text(formatMoney(proposal.bill.amountCents), style = TendType.rowAmount, color = NoticeText)
+                        }
                     }
                 }
             }

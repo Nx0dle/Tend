@@ -43,6 +43,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tend.app.data.BillProposal
 import com.tend.app.data.BillReminderOccurrence
 import com.tend.app.data.CategoryBudget
 import com.tend.app.data.ExpenseCategory
@@ -87,18 +88,28 @@ internal fun TendHomeScreen(
     notificationsEnabled: Boolean,
     onEnableNotifications: () -> Unit,
     openBillsTab: Boolean,
+    openBillId: String?,
     recurringBills: List<RecurringBill>,
-    pendingBillReminders: List<BillReminderOccurrence>,
+    billProposals: List<BillProposal>,
     onSaveRecurringBill: (String?, String, Long, String?, Int) -> Unit,
     onDeleteRecurringBill: (RecurringBill) -> Unit,
-    onApproveBillReminder: (BillReminderOccurrence) -> Unit,
-    onSkipBillReminder: (BillReminderOccurrence) -> Unit,
+    onApproveBill: (String, Long?) -> Unit,
+    onSkipBill: (String) -> Unit,
 ) {
     var selectedTab by remember { mutableStateOf(if (openBillsTab) 2 else 0) }
     var calendarMonth by remember { mutableStateOf(YearMonth.now()) }
     var budgetMonth by remember { mutableStateOf(selectedMonth) }
     var editingEntry by remember { mutableStateOf<LedgerEntry?>(null) }
     var deletingEntry by remember { mutableStateOf<LedgerEntry?>(null) }
+    var approvingBill by remember { mutableStateOf<RecurringBill?>(null) }
+
+    LaunchedEffect(openBillId, recurringBills) {
+        if (openBillId != null) {
+            selectedTab = 2
+            budgetMonth = YearMonth.now()
+            if (approvingBill == null) approvingBill = recurringBills.firstOrNull { it.id == openBillId }
+        }
+    }
 
     val startScroll = rememberScrollState()
     val calendarScroll = rememberScrollState()
@@ -218,6 +229,9 @@ internal fun TendHomeScreen(
                         entries = entries,
                         categories = categories,
                         month = tabMonth,
+                        pendingProposals = billProposals.filter {
+                            it.monthKey == tabMonth.toString() && it.status == BillReminderOccurrence.STATUS_PENDING
+                        },
                         onEntryClick = { editingEntry = it },
                     )
                 }
@@ -229,6 +243,7 @@ internal fun TendHomeScreen(
                     budgets = currentBudgets,
                     monthlyBudget = currentMonthlyBudget,
                     carryoverCents = currentCarryoverCents,
+                    pendingBillsCents = pendingBillsCents(recurringBills, billProposals, YearMonth.now()),
                     onAddEntry = onAddEntry,
                     onAddCategory = onAddCategory,
                     onEntryClick = { editingEntry = it },
@@ -256,11 +271,11 @@ internal fun TendHomeScreen(
                     onRenameCategory = onRenameCategory,
                     onDeleteCategory = onDeleteCategory,
                     recurringBills = recurringBills,
-                    pendingBillReminders = pendingBillReminders,
+                    proposals = billProposals.filter { it.monthKey == tabMonth.toString() },
                     onSaveRecurringBill = onSaveRecurringBill,
                     onDeleteRecurringBill = onDeleteRecurringBill,
-                    onApproveBillReminder = onApproveBillReminder,
-                    onSkipBillReminder = onSkipBillReminder,
+                    onApproveBill = { approvingBill = it },
+                    onSkipBill = { onSkipBill(it.bill.id) },
                 )
             }
         }
@@ -284,6 +299,21 @@ internal fun TendHomeScreen(
                 BottomNavItem("Plan", selectedTab == 2, Modifier.weight(1f)) { selectedTab = 2 }
             }
         }
+    }
+
+    approvingBill?.let { bill ->
+        BillApprovalDialog(
+            bill = bill,
+            onDismiss = { approvingBill = null },
+            onApprove = { amountCents ->
+                onApproveBill(bill.id, amountCents)
+                approvingBill = null
+            },
+            onSkip = {
+                onSkipBill(bill.id)
+                approvingBill = null
+            },
+        )
     }
 
     editingEntry?.let { entry ->
